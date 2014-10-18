@@ -1,0 +1,164 @@
+$primary-color: #7ab0b2;
+$light-contrast-color: #e6feff;
+$dark-contrast-color: #b27954;
+$error-color: #e22;
+
+body {
+  margin: 0;
+  font-family: Verdana, sans-serif;
+  font-size: 16px;
+  background-color: #eee;
+}
+
+form {
+  margin: 1em;
+  padding: 1em;
+  background-color: $light-contrast-color;
+  border-radius: 8px;
+  border: 2px solid $primary-color;
+
+  dl, dd {
+    margin: 0;
+  }
+
+  label {
+    color: $primary-color;
+  }
+
+  input[type=text], input[type=password], input[type=email] {
+    width: 100%;
+    font-size: 1.5em;
+    margin-bottom: 0.5em;
+  }
+
+  input[type=file] {
+    margin-bottom: 0.5em;
+  }
+}
+
+#working_notice {
+  position: fixed;
+  left: 50%;
+  bottom: 0%;
+  margin-left: -100px;
+  text-align: center;
+  width: 200px;
+  padding: 4px;
+  background-color: $dark-contrast-color;
+  color: $light-contrast-color;
+  font-weight: bold;
+  border-radius: 8px 8px 0 0;
+}
+
+#view {
+  background-color: white;
+  padding-bottom: 24px;
+}
+
+#view > div > header {
+  background-color: $primary-color;
+  margin-bottom: 16px;
+
+  h1 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0;
+    padding: 4px 0 4px 16px;
+    color: $light-contrast-color;
+  }
+
+  > nav {
+    font-size: 0.75em;
+    padding: 0 0 4px 16px;
+
+    a {
+      color: $light-contrast-color;
+      padding-right: 0.5em;
+      &:hover {
+        color: $dark-contrast-color;
+      }
+    }
+  }
+}
+
+#view .pageActions {
+  margin: -1em 0 1em 0;
+  padding: 1em;
+}
+
+a {
+  color: $dark-contrast-color;
+  text-decoration: none;
+  &:hover {
+    color: $primary-color;
+  }
+}
+
+a.button {
+  background-color: $primary-color;
+  color: $light-contrast-color;
+  border-radius: 4px;
+  font-weight: bold;
+  padding: 4px 8px 4px 8px;
+  border: none;
+
+  &:hover {
+    color: white;
+  }
+}
+
+input[type=submit] {
+  background-color: $primary-color;
+  color: $light-contrast-color;
+  border-radius: 4px;
+  font-size: 1.5em;
+  font-weight: bold;
+  padding: 4px 8px 4px 8px;
+  border: none;
+
+  &:hover {
+    color: white;
+  }
+}
+
+#view > .login, #view > .register, #view > .lostPassword {
+  form {
+    margin: 1em auto 0 auto;
+    width: 400px;
+    padding: 1em;
+    background-color: $light-contrast-color;
+    border-radius: 8px;
+    border: 2px solid $primary-color;
+
+    dl, dd {
+      margin: 0;
+    }
+
+    label {
+      color: $primary-color;
+    }
+
+    input[type=text], input[type=email], input[type=password] {
+      width: 100%;
+      font-size: 1.5em;
+      margin-bottom: 0.5em;
+    }
+
+    a {
+      font-size: 0.75em;
+    }
+  }
+}
+
+#view > .account {
+  input[type=text], input[type=password], input[type=email] {
+    max-width: 20em;
+  }
+}
+
+body > footer {
+  text-align: center;
+  color: $primary-color;
+  padding: 8px 16px 8px 16px;
+  font-size: 0.75em;
+}
