@@ -6,7 +6,7 @@
 /public
 /tern.conf
 /tern.test.conf
-/tpr.conf
-/tpr.test.conf
-/tpr_*
+/jchat.conf
+/jchat.test.conf
+/jchat_*
 /tmp
