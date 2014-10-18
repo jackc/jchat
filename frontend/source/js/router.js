@@ -12,54 +12,14 @@
     routes: {
       login: "login",
       register: "register",
-      lostPassword: "lostPassword",
-      resetPassword: "resetPassword",
-      home: "home",
-      feeds: "feeds",
-      account: "account",
     },
 
     login: function() {
       this.changePage(App.Views.LoginPage);
     },
 
-    lostPassword: function() {
-      this.changePage(App.Views.LostPasswordPage);
-    },
-
-    resetPassword: function() {
-      this.changePage(App.Views.ResetPasswordPage);
-    },
-
-    home: function() {
-      if(!State.Session.isAuthenticated()) {
-        this.navigate("login");
-        return;
-      }
-
-      this.changePage(App.Views.HomePage);
-    },
-
     register: function() {
       this.changePage(App.Views.RegisterPage);
-    },
-
-    feeds: function() {
-      if(!State.Session.isAuthenticated()) {
-        this.navigate("login");
-        return;
-      }
-
-      this.changePage(App.Views.FeedsPage);
-    },
-
-    account: function() {
-      if(!State.Session.isAuthenticated()) {
-        this.navigate("login");
-        return;
-      }
-
-      this.changePage(App.Views.AccountPage);
     },
 
     changePage: function(pageClass, options) {

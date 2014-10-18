@@ -24,6 +24,12 @@ type UserRepository interface {
 	SetPassword(userID int32, password string) (err error)
 }
 
+type SessionRepository interface {
+	Create(userID int32) (sessionID []byte, err error)
+	Delete(sessionID []byte) (err error)
+	GetUserIDBySessionID(sessionID []byte) (userID int32, err error)
+}
+
 func DigestPassword(password string) (digest, salt []byte, err error) {
 	salt = make([]byte, 8)
 	_, err = rand.Read(salt)

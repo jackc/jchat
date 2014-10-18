@@ -121,7 +121,7 @@ input[type=submit] {
   }
 }
 
-#view > .login, #view > .register, #view > .lostPassword {
+#view > .login, #view > .register {
   form {
     margin: 1em auto 0 auto;
     width: 400px;
@@ -147,12 +147,6 @@ input[type=submit] {
     a {
       font-size: 0.75em;
     }
-  }
-}
-
-#view > .account {
-  input[type=text], input[type=password], input[type=email] {
-    max-width: 20em;
   }
 }
 
