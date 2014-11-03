@@ -1,9 +1,11 @@
 package main
 
 import (
+	"crypto/rand"
 	"errors"
 	"github.com/jackc/pgx"
 	"github.com/vaughan0/go-ini"
+	"io"
 	"strconv"
 )
 
@@ -107,4 +109,47 @@ func (repo *PgxUserRepository) SetPassword(userID int32, password string) (err e
 	}
 
 	return nil
+}
+
+type PgxSessionRepository struct {
+	pool *pgx.ConnPool
+}
+
+func NewPgxSessionRepository(pool *pgx.ConnPool) *PgxSessionRepository {
+	return &PgxSessionRepository{pool: pool}
+}
+
+func (repo *PgxSessionRepository) Create(userID int32) (sessionID []byte, err error) {
+	sessionID = make([]byte, 16)
+	_, err = io.ReadFull(rand.Reader, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = repo.pool.Exec(`insert into sessions(id, user_id) values($1, $2)`, sessionID, userID)
+	return sessionID, err
+}
+
+func (repo *PgxSessionRepository) Delete(sessionID []byte) (err error) {
+	commandTag, err := repo.pool.Exec(`delete from sessions where id=$1`, sessionID)
+	if err != nil {
+		return err
+	}
+	if commandTag != "DELETE 1" {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+func (repo *PgxSessionRepository) GetUserIDBySessionID(sessionID []byte) (userID int32, err error) {
+	err = repo.pool.QueryRow("select user_id from sessions where id=$1", sessionID).Scan(&userID)
+	if err == pgx.ErrNoRows {
+		return 0, ErrNotFound
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	return userID, nil
 }

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	qv "github.com/jackc/quo_vadis"
-	"github.com/jackc/tpr/backend/box"
 	log "gopkg.in/inconshreveable/log15.v2"
 	"net/http"
 	"time"
@@ -26,7 +25,7 @@ func EnvHandler(userRepo UserRepository, sessionRepo SessionRepository, logger l
 
 func AuthenticatedHandler(f EnvHandlerFunc) EnvHandlerFunc {
 	return EnvHandlerFunc(func(w http.ResponseWriter, req *http.Request, env *environment) {
-		if env.user == nil {
+		if env.userID == 0 {
 			w.WriteHeader(http.StatusForbidden)
 			fmt.Fprint(w, "Bad or missing X-Authentication header")
 			return
@@ -45,9 +44,9 @@ type environment struct {
 func NewAPIHandler(userRepo UserRepository, sessionRepo SessionRepository, logger log.Logger) http.Handler {
 	router := qv.NewRouter()
 
-	router.Post("/register", EnvHandler(repo, logger, RegisterHandler))
-	router.Post("/sessions", EnvHandler(repo, logger, CreateSessionHandler))
-	router.Delete("/sessions/:id", EnvHandler(repo, logger, AuthenticatedHandler(DeleteSessionHandler)))
+	router.Post("/register", EnvHandler(userRepo, sessionRepo, logger, RegisterHandler))
+	router.Post("/sessions", EnvHandler(userRepo, sessionRepo, logger, CreateSessionHandler))
+	router.Delete("/sessions/:id", EnvHandler(userRepo, sessionRepo, logger, AuthenticatedHandler(DeleteSessionHandler)))
 
 	return router
 }
@@ -89,19 +88,14 @@ func RegisterHandler(w http.ResponseWriter, req *http.Request, env *environment)
 		return
 	}
 
-	err := validatePassword(registration.Password)
+	err := ValidatePassword(registration.Password)
 	if err != nil {
 		w.WriteHeader(422)
 		fmt.Fprintln(w, err)
 		return
 	}
 
-	user := &User{}
-	user.Name.SetCoerceZero(registration.Name, box.Null)
-	user.Email.SetCoerceZero(registration.Email, box.Null)
-	user.SetPassword(registration.Password)
-
-	userID, err := env.repo.CreateUser(user)
+	userID, err := env.userRepo.Create(registration.Name, registration.Email, registration.Password)
 	if err != nil {
 		if err, ok := err.(DuplicationError); ok {
 			w.WriteHeader(422)
@@ -113,13 +107,7 @@ func RegisterHandler(w http.ResponseWriter, req *http.Request, env *environment)
 		}
 	}
 
-	sessionID, err := genSessionID()
-	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	err = env.repo.CreateSession(sessionID, userID)
+	sessionID, err := env.sessionRepo.Create(userID)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -142,7 +130,7 @@ func RegisterHandler(w http.ResponseWriter, req *http.Request, env *environment)
 
 func CreateSessionHandler(w http.ResponseWriter, req *http.Request, env *environment) {
 	var credentials struct {
-		Name     string `json:"name"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
@@ -153,9 +141,9 @@ func CreateSessionHandler(w http.ResponseWriter, req *http.Request, env *environ
 		return
 	}
 
-	if credentials.Name == "" {
+	if credentials.Email == "" {
 		w.WriteHeader(422)
-		fmt.Fprintln(w, `Request must include the attribute "name"`)
+		fmt.Fprintln(w, `Request must include the attribute "email"`)
 		return
 	}
 
@@ -165,26 +153,14 @@ func CreateSessionHandler(w http.ResponseWriter, req *http.Request, env *environ
 		return
 	}
 
-	user, err := env.repo.GetUserByName(credentials.Name)
+	userID, err := env.userRepo.Login(credentials.Email, credentials.Password)
 	if err != nil {
 		w.WriteHeader(422)
 		fmt.Fprintln(w, "Bad user name or password")
 		return
 	}
 
-	if !user.IsPassword(credentials.Password) {
-		w.WriteHeader(422)
-		fmt.Fprintln(w, "Bad user name or password")
-		return
-	}
-
-	sessionID, err := genSessionID()
-	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	err = env.repo.CreateSession(sessionID, user.ID.MustGet())
+	sessionID, err := env.sessionRepo.Create(userID)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -194,11 +170,11 @@ func CreateSessionHandler(w http.ResponseWriter, req *http.Request, env *environ
 	w.WriteHeader(http.StatusCreated)
 
 	var response struct {
-		Name      string `json:"name"`
+		Email     string `json:"email"`
 		SessionID string `json:"sessionID"`
 	}
 
-	response.Name = credentials.Name
+	response.Email = credentials.Email
 	response.SessionID = hex.EncodeToString(sessionID)
 
 	encoder := json.NewEncoder(w)
@@ -212,7 +188,7 @@ func DeleteSessionHandler(w http.ResponseWriter, req *http.Request, env *environ
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	err = env.repo.DeleteSession(sessionID)
+	err = env.sessionRepo.Delete(sessionID)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return

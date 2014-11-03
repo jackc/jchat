@@ -142,13 +142,16 @@ func Serve(c *cli.Context) {
 		os.Exit(1)
 	}
 
-	repo, err := newRepo(conf, logger)
+	pool, err := newConnPool(conf)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Println("Unable to create pgx connection pool: %v", err)
 		os.Exit(1)
 	}
 
-	apiHandler := NewAPIHandler(repo, mailer, logger.New("module", "http"))
+	userRepo := NewPgxUserRepository(pool)
+	sessionRepo := NewPgxSessionRepository(pool)
+
+	apiHandler := NewAPIHandler(userRepo, sessionRepo, logger.New("module", "http"))
 	http.Handle("/api/", http.StripPrefix("/api", apiHandler))
 
 	if httpConfig.staticURL != "" {
