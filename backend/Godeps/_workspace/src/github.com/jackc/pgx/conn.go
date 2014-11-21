@@ -35,6 +35,7 @@ type ConnConfig struct {
 // goroutines.
 type Conn struct {
 	conn               net.Conn      // the underlying TCP or unix domain socket connection
+	lastActivityTime   time.Time     // the last time the connection was used
 	reader             *bufio.Reader // buffered reader to improve read performance
 	wbuf               [1024]byte
 	Pid                int32             // backend pid
@@ -73,8 +74,12 @@ type CommandTag string
 // RowsAffected returns the number of rows affected. If the CommandTag was not
 // for a row affecting command (such as "CREATE TABLE") then it returns 0
 func (ct CommandTag) RowsAffected() int64 {
-	words := strings.Split(string(ct), " ")
-	n, _ := strconv.ParseInt(words[len(words)-1], 10, 64)
+	s := string(ct)
+	index := strings.LastIndex(s, " ")
+	if index == -1 {
+		return 0
+	}
+	n, _ := strconv.ParseInt(s[index+1:], 10, 64)
 	return n
 }
 
@@ -98,7 +103,7 @@ func Connect(config ConnConfig) (c *Conn, err error) {
 	if c.config.Logger != nil {
 		c.logger = c.config.Logger
 	} else {
-		c.logger = &discardLogger{}
+		c.logger = dlogger
 	}
 
 	if c.config.User == "" {
@@ -150,6 +155,7 @@ func Connect(config ConnConfig) (c *Conn, err error) {
 	c.RuntimeParams = make(map[string]string)
 	c.preparedStatements = make(map[string]*PreparedStatement)
 	c.alive = true
+	c.lastActivityTime = time.Now()
 
 	if config.TLSConfig != nil {
 		c.logger.Debug("Starting TLS handshake")
@@ -188,8 +194,10 @@ func Connect(config ConnConfig) (c *Conn, err error) {
 			}
 		case readyForQuery:
 			c.rxReadyForQuery(r)
-			c.logger = &connLogger{logger: c.logger, pid: c.Pid}
-			c.logger.Info("Connection established")
+			if c.logger != dlogger {
+				c.logger = &connLogger{logger: c.logger, pid: c.Pid}
+				c.logger.Info("Connection established")
+			}
 
 			err = c.loadPgTypes()
 			if err != nil {
@@ -385,14 +393,56 @@ func (c *Conn) Listen(channel string) (err error) {
 // WaitForNotification waits for a PostgreSQL notification for up to timeout.
 // If the timeout occurs it returns pgx.ErrNotificationTimeout
 func (c *Conn) WaitForNotification(timeout time.Duration) (*Notification, error) {
+	// Return already received notification immediately
 	if len(c.notifications) > 0 {
 		notification := c.notifications[0]
 		c.notifications = c.notifications[1:]
 		return notification, nil
 	}
 
-	var zeroTime time.Time
 	stopTime := time.Now().Add(timeout)
+
+	for {
+		now := time.Now()
+
+		if now.After(stopTime) {
+			return nil, ErrNotificationTimeout
+		}
+
+		// If there has been no activity on this connection for a while send a nop message just to ensure
+		// the connection is alive
+		nextEnsureAliveTime := c.lastActivityTime.Add(15 * time.Second)
+		if nextEnsureAliveTime.Before(now) {
+			// If the server can't respond to a nop in 15 seconds, assume it's dead
+			err := c.conn.SetReadDeadline(now.Add(15 * time.Second))
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = c.Exec("--;")
+			if err != nil {
+				return nil, err
+			}
+
+			c.lastActivityTime = now
+		}
+
+		var deadline time.Time
+		if stopTime.Before(nextEnsureAliveTime) {
+			deadline = stopTime
+		} else {
+			deadline = nextEnsureAliveTime
+		}
+
+		notification, err := c.waitForNotification(deadline)
+		if err != ErrNotificationTimeout {
+			return notification, err
+		}
+	}
+}
+
+func (c *Conn) waitForNotification(deadline time.Time) (*Notification, error) {
+	var zeroTime time.Time
 
 	for {
 		// Use SetReadDeadline to implement the timeout. SetReadDeadline will
@@ -403,7 +453,7 @@ func (c *Conn) WaitForNotification(timeout time.Duration) (*Notification, error)
 		// deadline and peek into the reader. If a timeout error occurs there
 		// we don't break the pgx connection. If the Peek returns that data
 		// is available then we turn off the read deadline before the rxMsg.
-		err := c.conn.SetReadDeadline(stopTime)
+		err := c.conn.SetReadDeadline(deadline)
 		if err != nil {
 			return nil, err
 		}
@@ -594,15 +644,18 @@ func (c *Conn) sendPreparedQuery(ps *PreparedStatement, arguments ...interface{}
 // arguments should be referenced positionally from the sql string as $1, $2, etc.
 func (c *Conn) Exec(sql string, arguments ...interface{}) (commandTag CommandTag, err error) {
 	startTime := time.Now()
+	c.lastActivityTime = startTime
 
-	defer func() {
-		if err == nil {
-			endTime := time.Now()
-			c.logger.Info("Exec", "sql", sql, "args", logQueryArgs(arguments), "time", endTime.Sub(startTime), "commandTag", commandTag)
-		} else {
-			c.logger.Error("Exec", "sql", sql, "args", logQueryArgs(arguments), "error", err)
-		}
-	}()
+	if c.logger != dlogger {
+		defer func() {
+			if err == nil {
+				endTime := time.Now()
+				c.logger.Info("Exec", "sql", sql, "args", logQueryArgs(arguments), "time", endTime.Sub(startTime), "commandTag", commandTag)
+			} else {
+				c.logger.Error("Exec", "sql", sql, "args", logQueryArgs(arguments), "error", err)
+			}
+		}()
+	}
 
 	if err = c.sendQuery(sql, arguments...); err != nil {
 		return
@@ -666,6 +719,8 @@ func (c *Conn) rxMsg() (t byte, r *msgReader, err error) {
 	if err != nil {
 		c.die(err)
 	}
+
+	c.lastActivityTime = time.Now()
 
 	return t, &c.mr, err
 }
