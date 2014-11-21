@@ -59,7 +59,12 @@ func getUserIDFromSession(req *http.Request, sessionRepo SessionRepository) (use
 		return 0, err
 	}
 
-	return sessionRepo.GetUserIDBySessionID(sessionID)
+	session, err := sessionRepo.GetSession(sessionID)
+	if err != nil {
+		return 0, err
+	}
+
+	return session.UserID, nil
 }
 
 func RegisterHandler(w http.ResponseWriter, req *http.Request, env *environment) {
@@ -107,7 +112,7 @@ func RegisterHandler(w http.ResponseWriter, req *http.Request, env *environment)
 		}
 	}
 
-	sessionID, err := env.sessionRepo.Create(userID)
+	sessionID, err := env.sessionRepo.Create(Session{UserID: userID})
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -160,7 +165,7 @@ func CreateSessionHandler(w http.ResponseWriter, req *http.Request, env *environ
 		return
 	}
 
-	sessionID, err := env.sessionRepo.Create(userID)
+	sessionID, err := env.sessionRepo.Create(Session{UserID: userID})
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return

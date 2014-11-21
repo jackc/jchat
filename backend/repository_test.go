@@ -67,17 +67,17 @@ func testUserRepositorySetPassword(t *testing.T, repo UserRepository) {
 }
 
 func testSessionRepository(t *testing.T, repo SessionRepository, userID int32) {
-	sessionID, err := repo.Create(userID)
+	sessionID, err := repo.Create(Session{UserID: userID})
 	if err != nil {
 		t.Fatalf("repo.Create returned error: %v", err)
 	}
 
-	foundUserID, err := repo.GetUserIDBySessionID(sessionID)
+	session, err := repo.GetSession(sessionID)
 	if err != nil {
 		t.Fatalf("repo.GetUserIDBySessionID returned error: %v", err)
 	}
-	if userID != foundUserID {
-		t.Fatalf("Expected repo.GetUserIDBySessionID to return userID %v, but it was %d", userID, foundUserID)
+	if userID != session.UserID {
+		t.Fatalf("Expected repo.GetSession to return session.UserID %v, but it was %d", userID, session.UserID)
 	}
 
 	err = repo.Delete(sessionID)
@@ -85,7 +85,7 @@ func testSessionRepository(t *testing.T, repo SessionRepository, userID int32) {
 		t.Fatalf("repo.Delete returned error: %v", err)
 	}
 
-	_, err = repo.GetUserIDBySessionID(sessionID)
+	_, err = repo.GetSession(sessionID)
 	if err != ErrNotFound {
 		t.Fatalf("Expected repo.GetUserIDBySessionID to return ErrNotFound, but returned error: %v", err)
 	}

@@ -119,14 +119,14 @@ func NewPgxSessionRepository(pool *pgx.ConnPool) *PgxSessionRepository {
 	return &PgxSessionRepository{pool: pool}
 }
 
-func (repo *PgxSessionRepository) Create(userID int32) (sessionID []byte, err error) {
+func (repo *PgxSessionRepository) Create(session Session) (sessionID []byte, err error) {
 	sessionID = make([]byte, 16)
 	_, err = io.ReadFull(rand.Reader, sessionID)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = repo.pool.Exec(`insert into sessions(id, user_id) values($1, $2)`, sessionID, userID)
+	_, err = repo.pool.Exec(`insert into sessions(id, user_id) values($1, $2)`, sessionID, session.UserID)
 	return sessionID, err
 }
 
@@ -142,14 +142,14 @@ func (repo *PgxSessionRepository) Delete(sessionID []byte) (err error) {
 	return nil
 }
 
-func (repo *PgxSessionRepository) GetUserIDBySessionID(sessionID []byte) (userID int32, err error) {
-	err = repo.pool.QueryRow("select user_id from sessions where id=$1", sessionID).Scan(&userID)
+func (repo *PgxSessionRepository) GetSession(sessionID []byte) (session Session, err error) {
+	err = repo.pool.QueryRow("select user_id from sessions where id=$1", sessionID).Scan(&session.UserID)
 	if err == pgx.ErrNoRows {
-		return 0, ErrNotFound
+		return Session{}, ErrNotFound
 	}
 	if err != nil {
-		return 0, err
+		return Session{}, err
 	}
 
-	return userID, nil
+	return session, nil
 }
