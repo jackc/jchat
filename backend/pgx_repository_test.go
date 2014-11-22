@@ -33,6 +33,8 @@ func getPgxConnPool(t testing.TB) *pgx.ConnPool {
 		return commandTag
 	}
 
+	mustExec(t, "delete from messages")
+	mustExec(t, "delete from channels")
 	mustExec(t, "delete from users")
 
 	return sharedPgxConnPool
@@ -69,4 +71,16 @@ func TestPgxSessionRepository(t *testing.T) {
 
 	sessionRepo := NewPgxSessionRepository(connPool)
 	testSessionRepository(t, sessionRepo, userID)
+}
+
+func TestPgxChatRepository(t *testing.T) {
+	connPool := getPgxConnPool(t)
+	userRepo := NewPgxUserRepository(connPool)
+	userID, err := userRepo.Create("test", "test@example.com", "secret")
+	if err != nil {
+		t.Fatalf("userRepo.Create unexpectedly failed: %v", err)
+	}
+
+	chatRepo := NewPgxChatRepository(connPool)
+	testChatRepository(t, chatRepo, userID)
 }

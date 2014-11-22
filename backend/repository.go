@@ -41,7 +41,7 @@ type Channel struct {
 }
 
 type Message struct {
-	ID       int32
+	ID       int64
 	AuthorID int32
 	Body     string
 	Time     time.Time
@@ -50,7 +50,7 @@ type Message struct {
 type ChatRepository interface {
 	CreateChannel(name string, userID int32) (channelID int32, err error)
 	GetChannels() (channels []Channel, err error)
-	PostMessage(channelID int32, authorID, body string) (messageID int32, err error)
+	PostMessage(channelID int32, authorID int32, body string) (messageID int64, err error)
 	GetMessages(channelID int32, beforeMessageID int32, maxCount int32) (messages []Message, err error)
 }
 

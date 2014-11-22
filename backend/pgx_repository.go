@@ -153,3 +153,70 @@ func (repo *PgxSessionRepository) GetSession(sessionID []byte) (session Session,
 
 	return session, nil
 }
+
+type PgxChatRepository struct {
+	pool *pgx.ConnPool
+}
+
+func NewPgxChatRepository(pool *pgx.ConnPool) *PgxChatRepository {
+	return &PgxChatRepository{pool: pool}
+}
+
+func (repo *PgxChatRepository) CreateChannel(name string, userID int32) (channelID int32, err error) {
+	err = repo.pool.QueryRow(
+		"insert into channels(name) values($1) returning id",
+		name,
+	).Scan(&channelID)
+	if err != nil {
+		return 0, err
+	}
+
+	return channelID, nil
+}
+
+func (repo *PgxChatRepository) GetChannels() (channels []Channel, err error) {
+	channels = make([]Channel, 0, 8)
+	rows, _ := repo.pool.Query("select id, name from channels order by name")
+
+	for rows.Next() {
+		var c Channel
+		rows.Scan(&c.ID, &c.Name)
+		channels = append(channels, c)
+	}
+
+	return channels, rows.Err()
+}
+
+func (repo *PgxChatRepository) PostMessage(channelID int32, authorID int32, body string) (messageID int64, err error) {
+	err = repo.pool.QueryRow(
+		"insert into messages(channel_id, user_id, body) values($1, $2, $3) returning id",
+		channelID,
+		authorID,
+		body,
+	).Scan(&messageID)
+	if err != nil {
+		return 0, err
+	}
+
+	return messageID, nil
+}
+
+func (repo *PgxChatRepository) GetMessages(channelID int32, beforeMessageID int32, maxCount int32) (messages []Message, err error) {
+	messages = make([]Message, 0, 8)
+	rows, _ := repo.pool.Query(`
+		select id, user_id, body, creation_time
+		from messages
+		where channel_id=$1
+		order by id desc
+	`,
+		channelID,
+	)
+
+	for rows.Next() {
+		var m Message
+		rows.Scan(&m.ID, &m.AuthorID, &m.Body, &m.Time)
+		messages = append(messages, m)
+	}
+
+	return messages, rows.Err()
+}
