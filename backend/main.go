@@ -7,7 +7,6 @@ import (
 	"github.com/vaughan0/go-ini"
 	"golang.org/x/net/websocket"
 	log "gopkg.in/inconshreveable/log15.v2"
-	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -178,5 +177,23 @@ func Serve(c *cli.Context) {
 
 // Echo the data received on the WebSocket.
 func EchoServer(ws *websocket.Conn) {
-	io.Copy(ws, ws)
+	defer ws.Close()
+
+	for {
+		msg := make([]byte, 4096)
+		n, err := ws.Read(msg)
+		if err != nil {
+			return
+		}
+
+		_, err = ws.Write(msg[0:n])
+		if err != nil {
+			return
+		}
+
+		_, err = ws.Write(msg[0:n])
+		if err != nil {
+			return
+		}
+	}
 }
