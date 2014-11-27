@@ -12,6 +12,7 @@
     routes: {
       login: "login",
       register: "register",
+      home: "home"
     },
 
     login: function() {
@@ -20,6 +21,10 @@
 
     register: function() {
       this.changePage(App.Views.RegisterPage);
+    },
+
+    home: function() {
+      this.changePage(App.Views.HomePage);
     },
 
     changePage: function(pageClass, options) {

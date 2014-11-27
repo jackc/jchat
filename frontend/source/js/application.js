@@ -5,6 +5,7 @@
 //= require connection.js
 //= require models/session.js
 //= require views/view.js
+//= require views/home.js
 //= require views/login.js
 //= require views/register.js
 //= require views/header.js

@@ -161,7 +161,7 @@ func CreateSessionHandler(w http.ResponseWriter, req *http.Request, env *environ
 	userID, err := env.userRepo.Login(credentials.Email, credentials.Password)
 	if err != nil {
 		w.WriteHeader(422)
-		fmt.Fprintln(w, "Bad user name or password")
+		fmt.Fprintln(w, "Bad email or password")
 		return
 	}
 

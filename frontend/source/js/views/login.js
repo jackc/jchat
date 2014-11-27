@@ -24,7 +24,7 @@
     e.preventDefault()
     var form = e.currentTarget
     var credentials = {
-      name: form.elements.name.value,
+      email: form.elements.email.value,
       password: form.elements.password.value
     }
     conn.login(credentials, {
