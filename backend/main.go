@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/jackc/cli"
 	"github.com/vaughan0/go-ini"
+	"golang.org/x/net/websocket"
 	log "gopkg.in/inconshreveable/log15.v2"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -163,6 +165,8 @@ func Serve(c *cli.Context) {
 		http.Handle("/", httputil.NewSingleHostReverseProxy(staticURL))
 	}
 
+	http.Handle("/ws", websocket.Handler(EchoServer))
+
 	listenAt := fmt.Sprintf("%s:%s", httpConfig.listenAddress, httpConfig.listenPort)
 	fmt.Printf("Starting to listen on: %s\n", listenAt)
 
@@ -170,4 +174,9 @@ func Serve(c *cli.Context) {
 		os.Stderr.WriteString("Could not start web server!\n")
 		os.Exit(1)
 	}
+}
+
+// Echo the data received on the WebSocket.
+func EchoServer(ws *websocket.Conn) {
+	io.Copy(ws, ws)
 }

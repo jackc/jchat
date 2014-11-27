@@ -1,16 +1,16 @@
 {
 	"ImportPath": "github.com/jackc/jchat/backend",
-	"GoVersion": "go1.3.3",
+	"GoVersion": "go1.3",
 	"Deps": [
 		{
 			"ImportPath": "code.google.com/p/go.crypto/pbkdf2",
-			"Comment": "null-212",
-			"Rev": "1064b89a6fb591df0dd65422295b8498916b092f"
+			"Comment": "null-185",
+			"Rev": "6478cc9340cbbe6c04511280c5007722269108e9"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.crypto/scrypt",
-			"Comment": "null-212",
-			"Rev": "1064b89a6fb591df0dd65422295b8498916b092f"
+			"Comment": "null-185",
+			"Rev": "6478cc9340cbbe6c04511280c5007722269108e9"
 		},
 		{
 			"ImportPath": "github.com/jackc/cli",
@@ -19,8 +19,8 @@
 		},
 		{
 			"ImportPath": "github.com/jackc/pgx",
-			"Comment": "v2.4.0-15-gc195d9b",
-			"Rev": "c195d9bb96006b473e3fd14720c0f07be29a7a79"
+			"Comment": "v2.4.0-14-g721cb1f",
+			"Rev": "721cb1fd20ccaa80dcebc40ee32080f4418a39da"
 		},
 		{
 			"ImportPath": "github.com/jackc/quo_vadis",
@@ -29,6 +29,11 @@
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",
 			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
+		},
+		{
+			"ImportPath": "golang.org/x/net/websocket",
+			"Comment": "null-225",
+			"Rev": "d249ee5f3018b9bedb6a2262c62a16b278adca9e"
 		},
 		{
 			"ImportPath": "gopkg.in/inconshreveable/log15.v2",
