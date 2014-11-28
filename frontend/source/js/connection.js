@@ -2,7 +2,25 @@
   "use strict";
 
   window.Connection = function() {
-    var hostRelativeWsURI = function(path) {
+    this.firstRequestStarted = new signals.Signal();
+    this.lastRequestFinished = new signals.Signal();
+
+    this.ws = new WebSocket(this.hostRelativeWsURI("/ws"));
+    this.ws.onmessage = this.wsOnMessage.bind(this);
+    this.ws.onclose = function() { console.log("socket closed"); };
+    this.ws.onerror = function() { console.log("error"); };
+    this.ws.onopen = function() {
+      console.log("connected...");
+    }.bind(this);
+
+    this.pendingRequests = {}
+
+  };
+
+  Connection.prototype = {
+    nextRequestID: 0,
+
+    hostRelativeWsURI: function(path) {
       var l = window.location
       var wsURI
 
@@ -16,10 +34,9 @@
       wsURI += path
 
       return wsURI
-    }
+    },
 
-    this.ws = new WebSocket(hostRelativeWsURI("/ws"));
-    this.ws.onmessage = function(evt) {
+    wsOnMessage: function(evt) {
       var data = JSON.parse(evt.data)
 
       if(typeof data.id !== 'undefined') {
@@ -34,23 +51,19 @@
           }
 
           delete this.pendingRequests[id]
+
+          if(Object.keys(this.pendingRequests).length === 0) {
+            this.lastRequestFinished.dispatch()
+          }
         }
       }
-    }.bind(this);
-    this.ws.onclose = function() { console.log("socket closed"); };
-    this.ws.onerror = function() { console.log("error"); };
-    this.ws.onopen = function() {
-      console.log("connected...");
-    }.bind(this);
-
-    this.pendingRequests = {}
-
-  };
-
-  Connection.prototype = {
-    nextRequestID: 0,
+    },
 
     sendRequest: function(method, params, callbacks) {
+      if(Object.keys(this.pendingRequests).length === 0) {
+        this.firstRequestStarted.dispatch()
+      }
+
       var requestID = this.nextRequestID++
       var msg = {method: method, params: params, id: requestID}
       this.pendingRequests[requestID] = callbacks
