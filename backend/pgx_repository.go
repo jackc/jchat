@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"github.com/jackc/pgx"
 	"github.com/vaughan0/go-ini"
@@ -99,6 +101,71 @@ func (repo *PgxUserRepository) SetPassword(userID int32, password string) (err e
 	}
 
 	commandTag, err := repo.pool.Exec("update users set password_digest=$1, password_salt=$2 where id=$3", digest, salt, userID)
+	if err != nil {
+		return err
+	}
+	if commandTag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+func (repo *PgxUserRepository) CreatePasswordResetToken(email string, requestIP string) (token string, err error) {
+	var userID int32
+	err = repo.pool.QueryRow("select id from users where email=$1",
+		email,
+	).Scan(&userID)
+	if err == pgx.ErrNoRows {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+
+	tokenBytes := make([]byte, 16)
+	_, err = rand.Read(tokenBytes)
+	if err != nil {
+		return "", err
+	}
+
+	token = hex.EncodeToString(tokenBytes)
+
+	_, err = repo.pool.Exec("insert into password_resets(token, user_id, request_ip, request_time) values($1, $2, $3, current_timestamp)",
+		token, userID, requestIP)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func (repo *PgxUserRepository) SetPasswordByToken(token, password string, completionIP string) error {
+	digest, salt, err := DigestPassword(password)
+	if err != nil {
+		return err
+	}
+
+	commandTag, err := repo.pool.Exec(`
+		with t as (
+			update password_resets
+			set completion_ip=$1,
+			  completion_time=current_timestamp
+			where token=$2
+			  and completion_time is null
+			returning user_id
+		)
+		update users
+		set password_digest=$3,
+		  password_salt=$4
+		from t
+		where users.id=t.user_id
+		`,
+		completionIP,
+		token,
+		digest,
+		salt,
+	)
 	if err != nil {
 		return err
 	}

@@ -23,6 +23,9 @@ type UserRepository interface {
 	Create(name, email, password string) (user User, err error)
 	Login(email, password string) (user User, err error)
 	SetPassword(userID int32, password string) (err error)
+
+	CreatePasswordResetToken(email string, requestIP string) (token string, err error)
+	SetPasswordByToken(token, password string, completionIP string) error
 }
 
 type User struct {

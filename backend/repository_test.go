@@ -66,6 +66,49 @@ func testUserRepositorySetPassword(t *testing.T, repo UserRepository) {
 	}
 }
 
+func testUserRepositoryResetPasswordsLifeCycle(t *testing.T, repo UserRepository) {
+	_, err := repo.CreatePasswordResetToken("missing@example.com", "127.0.0.1")
+	if err != ErrNotFound {
+		t.Fatalf("repo.CreatePasswordResetToken with invalid email should have returned ErrNotFound, but was: %v", err)
+	}
+
+	user, err := repo.Create("tester", "tester@example.com", "oldpassword")
+	if err != nil {
+		t.Fatalf("repo.Create returned error: %v", err)
+	}
+
+	err = repo.SetPasswordByToken("invalidtoken", "newpassword", "127.0.0.1")
+	if err != ErrNotFound {
+		t.Fatalf("repo.SetPasswordByToken should have returned ErrNotFound but it returned: %v", err)
+	}
+
+	foundUser, err := repo.Login("tester@example.com", "oldpassword")
+	if err != nil {
+		t.Fatalf("repo.Login returned error: %v", err)
+	}
+	if foundUser != user {
+		t.Fatalf("Wrong user returned: %v", foundUser)
+	}
+
+	token, err := repo.CreatePasswordResetToken("tester@example.com", "127.0.01")
+	if err != nil {
+		t.Fatalf("repo.CreatePasswordReset returned error: %v", err)
+	}
+
+	err = repo.SetPasswordByToken(token, "newpassword", "127.0.01")
+	if err != nil {
+		t.Fatalf("repo.SetPasswordByToken returned error: %v", err)
+	}
+
+	foundUser, err = repo.Login("tester@example.com", "newpassword")
+	if err != nil {
+		t.Fatalf("repo.Login returned error: %v", err)
+	}
+	if foundUser != user {
+		t.Fatalf("Wrong user returned: %v", foundUser)
+	}
+}
+
 func testChatRepository(t *testing.T, repo ChatRepository, userID int32) {
 	channels, err := repo.GetChannels()
 	if err != nil {

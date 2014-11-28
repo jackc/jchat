@@ -86,14 +86,7 @@
     },
 
     requestPasswordReset: function(email, callbacks) {
-      var options = {
-        contentType: "application/json",
-        data: JSON.stringify({"email": email})
-      };
-
-      options = this.mergeCallbacks(options, callbacks);
-
-      return this.post("/api/request_password_reset", options);
+      this.sendRequest("request_password_reset", {"email": email}, callbacks)
     },
 
     resetPassword: function(reset, callbacks) {

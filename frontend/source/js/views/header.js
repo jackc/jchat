@@ -24,7 +24,6 @@
   p.logout = function(e) {
     e.preventDefault()
     conn.logout()
-    State.Session.clear()
     window.router.navigate("login")
   }
 })()

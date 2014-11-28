@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"golang.org/x/net/websocket"
 	log "gopkg.in/inconshreveable/log15.v2"
+	"net"
 )
 
 type ClientConn struct {
@@ -11,6 +13,7 @@ type ClientConn struct {
 	user     User
 	userRepo UserRepository
 	logger   log.Logger
+	mailer   Mailer
 }
 
 type Request struct {
@@ -56,6 +59,8 @@ func (conn *ClientConn) Dispatch() {
 			response = conn.Register(req.Params)
 		case "login":
 			response = conn.Login(req.Params)
+		case "request_password_reset":
+			response = conn.RequestPasswordReset(req.Params)
 		default:
 			// unknown req method
 			response.Error = &Error{Code: JSONRPCMethodNotFound, Message: "Method not found"}
@@ -144,5 +149,54 @@ func (conn *ClientConn) Login(body json.RawMessage) (response Response) {
 	}
 
 	response.Result = LoginSuccess{Name: conn.user.Name}
+	return response
+}
+
+func (conn *ClientConn) RequestPasswordReset(body json.RawMessage) (response Response) {
+	var reset struct {
+		Email string `json:"email"`
+	}
+
+	err := json.Unmarshal(body, &reset)
+	if err != nil {
+		response.Error = &Error{Code: JSONRPCParseError, Message: "Parse error"}
+		return response
+	}
+
+	if reset.Email == "" {
+		response.Error = &Error{Code: JSONRPCInvalidParams, Message: "Invalid params", Data: `Request must include the attribute "email"`}
+		return response
+	}
+
+	var remoteIP string
+	remoteIP, _, err = net.SplitHostPort(conn.ws.Request().RemoteAddr)
+	if err != nil {
+		response.Error = &Error{Code: 10, Message: "Unable to get remoteIP"}
+		return response
+	}
+
+	token, err := conn.userRepo.CreatePasswordResetToken(reset.Email, remoteIP)
+	if err == ErrNotFound {
+		response.Result = true // don't reveal whether email address is taken or not
+		return response
+	}
+	if err != nil {
+		fmt.Println(err)
+		response.Error = &Error{Code: 7, Message: "Unable to create password reset token"}
+		return response
+	}
+
+	if conn.mailer == nil {
+		response.Error = &Error{Code: 8, Message: "Mail is not configured -- cannot send password reset email"}
+		return response
+	}
+
+	err = conn.mailer.SendPasswordResetMail(reset.Email, token)
+	if err != nil {
+		response.Error = &Error{Code: 9, Message: "Send email failed"}
+		return response
+	}
+
+	response.Result = true // don't reveal whether email address is taken or not
 	return response
 }

@@ -41,8 +41,6 @@
   }
 
   p.onRegistrationSuccess = function(data) {
-    State.Session = new App.Models.Session(data)
-    State.Session.save()
     window.router.navigate("home")
   }
 

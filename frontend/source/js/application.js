@@ -3,10 +3,10 @@
 //= require_tree ./templates
 //= require namespace.js
 //= require connection.js
-//= require models/session.js
 //= require views/view.js
 //= require views/home.js
 //= require views/login.js
+//= require views/lost_password.js
 //= require views/register.js
 //= require views/header.js
 //= require views/working_notice.js

@@ -1,17 +1,13 @@
 (function() {
   "use strict";
 
-  App.Router = function(options) {
-    if(options) {
-      this.name = options.name;
-      this.id = options.sessionID;
-    }
-  };
+  App.Router = function() {};
 
   App.Router.prototype = {
     routes: {
       login: "login",
       register: "register",
+      lostPassword: "lostPassword",
       home: "home"
     },
 
@@ -21,6 +17,10 @@
 
     register: function() {
       this.changePage(App.Views.RegisterPage);
+    },
+
+    lostPassword: function() {
+      this.changePage(App.Views.LostPasswordPage);
     },
 
     home: function() {
