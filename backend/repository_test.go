@@ -22,72 +22,47 @@ func TestPasswordDigestAndPasswordMatch(t *testing.T) {
 }
 
 func testUserRepositoryCreateAndLoginCycle(t *testing.T, repo UserRepository) {
-	createdUserID, err := repo.Create("tester", "tester@example.com", "secret")
+	createdUser, err := repo.Create("tester", "tester@example.com", "secret")
 	if err != nil {
 		t.Fatalf("repo.Create returned error: %v", err)
 	}
 
-	foundUserID, err := repo.Login("tester@example.com", "secret")
+	foundUser, err := repo.Login("tester@example.com", "secret")
 	if err != nil {
 		t.Fatalf("repo.Login returned error: %v", err)
 	}
 
-	if createdUserID != foundUserID {
-		t.Fatalf("Expected repo.Login to return %v, but it returned %v", createdUserID, foundUserID)
+	if createdUser != foundUser {
+		t.Fatalf("Expected repo.Login to return %v, but it returned %v", createdUser, foundUser)
 	}
 }
 
 func testUserRepositorySetPassword(t *testing.T, repo UserRepository) {
-	userID, err := repo.Create("tester", "tester@example.com", "oldpassword")
+	user, err := repo.Create("tester", "tester@example.com", "oldpassword")
 	if err != nil {
 		t.Fatalf("repo.Create returned error: %v", err)
 	}
 
-	err = repo.SetPassword(userID, "newpassword")
+	err = repo.SetPassword(user.ID, "newpassword")
 	if err != nil {
 		t.Fatalf("repo.SetPassword returned error: %v", err)
 	}
 
-	foundUserID, err := repo.Login("tester@example.com", "oldpassword")
+	foundUser, err := repo.Login("tester@example.com", "oldpassword")
 	if err != ErrNotFound {
 		t.Fatalf("repo.Login should have returned error ErrNotFound, but it returned: %v", err)
 	}
-	if foundUserID == userID {
-		t.Fatalf("repo.Login should not have returned userID when password was wrong", err)
+	if foundUser != user {
+		t.Fatalf("repo.Login should not have returned user when password was wrong", err)
 	}
 
-	foundUserID, err = repo.Login("tester@example.com", "newpassword")
+	foundUser, err = repo.Login("tester@example.com", "newpassword")
 	if err != nil {
 		t.Fatalf("repo.Login returned error: %v", err)
 	}
 
-	if userID != foundUserID {
-		t.Fatalf("Expected repo.Login to return %v, but it returned %v", userID, foundUserID)
-	}
-}
-
-func testSessionRepository(t *testing.T, repo SessionRepository, userID int32) {
-	sessionID, err := repo.Create(Session{UserID: userID})
-	if err != nil {
-		t.Fatalf("repo.Create returned error: %v", err)
-	}
-
-	session, err := repo.GetSession(sessionID)
-	if err != nil {
-		t.Fatalf("repo.GetUserIDBySessionID returned error: %v", err)
-	}
-	if userID != session.UserID {
-		t.Fatalf("Expected repo.GetSession to return session.UserID %v, but it was %d", userID, session.UserID)
-	}
-
-	err = repo.Delete(sessionID)
-	if err != nil {
-		t.Fatalf("repo.Delete returned error: %v", err)
-	}
-
-	_, err = repo.GetSession(sessionID)
-	if err != ErrNotFound {
-		t.Fatalf("Expected repo.GetUserIDBySessionID to return ErrNotFound, but returned error: %v", err)
+	if user != foundUser {
+		t.Fatalf("Expected repo.Login to return %v, but it returned %v", user, foundUser)
 	}
 }
 

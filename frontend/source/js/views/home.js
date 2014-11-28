@@ -5,35 +5,6 @@
     view.View.call(this, "div")
     this.el.className = "home"
 
-    var debug = console.log
-
-    var hostRelativeWsURI = function(path) {
-      var l = window.location
-      var wsURI
-
-      if(l.protocol == "https:") {
-        wsURI = "wss:"
-      } else {
-        wsURI = "ws:"
-      }
-
-      wsURI += "//" + l.host
-      wsURI += path
-
-      return wsURI
-    }
-
-    State.ws = new WebSocket(hostRelativeWsURI("/ws"));
-    State.ws.onmessage = function(evt) { debug("Message: " + evt.data); };
-    State.ws.onclose = function() { debug("socket closed"); };
-    State.ws.onerror = function() { debug("error"); };
-    State.ws.onopen = function() {
-      debug("connected...");
-      State.ws.send("hello server");
-      State.ws.send("hello again");
-    };
-
-
     this.header = this.createChild(App.Views.LoggedInHeader)
     this.header.render()
 

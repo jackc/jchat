@@ -150,10 +150,6 @@ func Serve(c *cli.Context) {
 	}
 
 	userRepo := NewPgxUserRepository(pool)
-	sessionRepo := NewPgxSessionRepository(pool)
-
-	apiHandler := NewAPIHandler(userRepo, sessionRepo, logger.New("module", "http"))
-	http.Handle("/api/", http.StripPrefix("/api", apiHandler))
 
 	if httpConfig.staticURL != "" {
 		staticURL, err := url.Parse(httpConfig.staticURL)
@@ -164,7 +160,17 @@ func Serve(c *cli.Context) {
 		http.Handle("/", httputil.NewSingleHostReverseProxy(staticURL))
 	}
 
-	http.Handle("/ws", websocket.Handler(EchoServer))
+	http.Handle("/ws", websocket.Handler(func(ws *websocket.Conn) {
+		defer ws.Close()
+
+		conn := &ClientConn{
+			ws:       ws,
+			userRepo: userRepo,
+			logger:   logger,
+		}
+
+		conn.Dispatch()
+	}))
 
 	listenAt := fmt.Sprintf("%s:%s", httpConfig.listenAddress, httpConfig.listenPort)
 	fmt.Printf("Starting to listen on: %s\n", listenAt)
@@ -172,28 +178,5 @@ func Serve(c *cli.Context) {
 	if err := http.ListenAndServe(listenAt, nil); err != nil {
 		os.Stderr.WriteString("Could not start web server!\n")
 		os.Exit(1)
-	}
-}
-
-// Echo the data received on the WebSocket.
-func EchoServer(ws *websocket.Conn) {
-	defer ws.Close()
-
-	for {
-		msg := make([]byte, 4096)
-		n, err := ws.Read(msg)
-		if err != nil {
-			return
-		}
-
-		_, err = ws.Write(msg[0:n])
-		if err != nil {
-			return
-		}
-
-		_, err = ws.Write(msg[0:n])
-		if err != nil {
-			return
-		}
 	}
 }

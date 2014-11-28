@@ -20,19 +20,15 @@ func (e DuplicationError) Error() string {
 }
 
 type UserRepository interface {
-	Create(name, email, password string) (userID int32, err error)
-	Login(email, password string) (userID int32, err error)
+	Create(name, email, password string) (user User, err error)
+	Login(email, password string) (user User, err error)
 	SetPassword(userID int32, password string) (err error)
 }
 
-type Session struct {
-	UserID int32
-}
-
-type SessionRepository interface {
-	Create(session Session) (sessionID []byte, err error)
-	Delete(sessionID []byte) (err error)
-	GetSession(sessionID []byte) (session Session, err error)
+type User struct {
+	ID    int32
+	Name  string
+	Email string
 }
 
 type Channel struct {
