@@ -3,6 +3,7 @@
 //= require_tree ./templates
 //= require namespace.js
 //= require connection.js
+//= require models/chat.js
 //= require views/view.js
 //= require views/home.js
 //= require views/login.js

@@ -12,6 +12,7 @@ type ClientConn struct {
 	ws       *websocket.Conn
 	user     User
 	userRepo UserRepository
+	chatRepo ChatRepository
 	logger   log.Logger
 	mailer   Mailer
 }
@@ -19,7 +20,7 @@ type ClientConn struct {
 type Request struct {
 	Method string          `json:"method"`
 	Params json.RawMessage `json:"params"`
-	ID     json.Number     `json:"id"`
+	ID     *json.Number    `json:"id,omitempty"`
 }
 
 type Response struct {
@@ -35,7 +36,8 @@ type Error struct {
 }
 
 type LoginSuccess struct {
-	Name string `json:"name"`
+	Name string           `json:"name"`
+	Init *json.RawMessage `json:"init"`
 }
 
 const JSONRPCInvalidRequest = -32600
@@ -68,10 +70,11 @@ func (conn *ClientConn) Dispatch() {
 			response.Error = &Error{Code: JSONRPCMethodNotFound, Message: "Method not found"}
 		}
 
-		response.ID = req.ID
+		response.ID = *req.ID
 
 		err = websocket.JSON.Send(conn.ws, response)
 		if err != nil {
+			fmt.Println(err)
 			// Failed to send
 			return
 		}
@@ -118,7 +121,15 @@ func (conn *ClientConn) Register(params json.RawMessage) (response Response) {
 		}
 	}
 
-	response.Result = LoginSuccess{Name: registration.Name}
+	initJSON, err := conn.chatRepo.GetInit(conn.user.ID)
+	if err != nil {
+		response.Error = &Error{Code: 12, Message: "Unable to initialize chat"}
+		return response
+	}
+
+	rawInit := json.RawMessage(initJSON)
+	response.Result = LoginSuccess{Name: conn.user.Name, Init: &rawInit}
+
 	return response
 }
 
@@ -150,7 +161,15 @@ func (conn *ClientConn) Login(body json.RawMessage) (response Response) {
 		return response
 	}
 
-	response.Result = LoginSuccess{Name: conn.user.Name}
+	initJSON, err := conn.chatRepo.GetInit(conn.user.ID)
+	if err != nil {
+		response.Error = &Error{Code: 12, Message: "Unable to initialize chat"}
+		return response
+	}
+
+	rawInit := json.RawMessage(initJSON)
+	response.Result = LoginSuccess{Name: conn.user.Name, Init: &rawInit}
+
 	return response
 }
 

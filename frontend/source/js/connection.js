@@ -40,23 +40,33 @@
       var data = JSON.parse(evt.data)
 
       if(typeof data.id !== 'undefined') {
-        var id = data.id
-        var callbacks = this.pendingRequests[id]
-        if(callbacks) {
-          if(data.result && callbacks.succeeded) {
-            callbacks.succeeded(data.result)
-          }
-          if(data.error && callbacks.failed) {
-            callbacks.failed(data.error)
-          }
+        this.onResponse(data)
+      } else {
+        this.onNotification(data)
+      }
+    },
 
-          delete this.pendingRequests[id]
+    onResponse: function(response) {
+      var id = response.id
+      var callbacks = this.pendingRequests[id]
+      if(callbacks) {
+        if(response.result && callbacks.succeeded) {
+          callbacks.succeeded(response.result)
+        }
+        if(response.error && callbacks.failed) {
+          callbacks.failed(response.error)
+        }
 
-          if(Object.keys(this.pendingRequests).length === 0) {
-            this.lastRequestFinished.dispatch()
-          }
+        delete this.pendingRequests[id]
+
+        if(Object.keys(this.pendingRequests).length === 0) {
+          this.lastRequestFinished.dispatch()
         }
       }
+    },
+
+    onNotification: function(notification) {
+      console.log(notification)
     },
 
     sendRequest: function(method, params, callbacks) {

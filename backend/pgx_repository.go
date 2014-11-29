@@ -242,3 +242,33 @@ func (repo *PgxChatRepository) GetMessages(channelID int32, beforeMessageID int3
 
 	return messages, rows.Err()
 }
+
+func (repo *PgxChatRepository) GetInit(userID int32) (json []byte, err error) {
+	err = repo.pool.QueryRow(`
+		select row_to_json(t)
+		from (
+		  select json_agg(row_to_json(t)) as channels
+		  from (
+		    select
+		      id,
+		      name,
+		      (
+		        select json_agg(row_to_json(t))
+		        from (
+		          select
+		            id,
+		            user_id,
+		            body,
+		            extract(epoch from creation_time::timestamptz(0)) as creation_time
+		          from messages
+		          where messages.channel_id=channels.id
+		          order by creation_time asc
+		        ) t
+		      ) messages
+		    from channels
+		  ) t
+		) t
+	`).Scan(&json)
+
+	return json, err
+}

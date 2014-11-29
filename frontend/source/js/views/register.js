@@ -41,6 +41,7 @@
   }
 
   p.onRegistrationSuccess = function(data) {
+    window.chat = new App.Models.Chat(data.init)
     window.router.navigate("home")
   }
 

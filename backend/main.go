@@ -194,6 +194,7 @@ func Serve(c *cli.Context) {
 	}
 
 	userRepo := NewPgxUserRepository(pool)
+	chatRepo := NewPgxChatRepository(pool)
 
 	mailer, err := newMailer(conf, logger)
 	if err != nil {
@@ -216,6 +217,7 @@ func Serve(c *cli.Context) {
 		conn := &ClientConn{
 			ws:       ws,
 			userRepo: userRepo,
+			chatRepo: chatRepo,
 			logger:   logger,
 			mailer:   mailer,
 		}

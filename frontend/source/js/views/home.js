@@ -35,7 +35,30 @@
   var p = App.Views.Channels.prototype
 
   p.render = function() {
-    this.el.innerHTML = "<li>general</li><li>random</li>"
+    this.el.innerHTML = ""
+
+    window.chat.channels.forEach(function(c) {
+      var v = new App.Views.Channel({model: c})
+      this.el.appendChild(v.render())
+    }, this)
+    return this.el
+  }
+
+
+  App.Views.Channel = function(options) {
+    view.View.call(this, "li")
+
+    this.model = options.model
+  }
+
+  App.Views.Channel.prototype = Object.create(view.View.prototype)
+
+  var p = App.Views.Channel.prototype
+
+  p.template = JST["templates/channel"]
+
+  p.render = function() {
+    this.el.innerHTML = this.template(this.model)
     return this.el
   }
 })()
