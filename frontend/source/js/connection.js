@@ -90,14 +90,7 @@
     },
 
     resetPassword: function(reset, callbacks) {
-      var options = {
-        contentType: "application/json",
-        data: JSON.stringify(reset)
-      };
-
-      options = this.mergeCallbacks(options, callbacks);
-
-      this.post("/api/reset_password", options);
+      this.sendRequest("reset_password", reset, callbacks)
     }
   }
 })();

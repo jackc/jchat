@@ -8,6 +8,7 @@
       login: "login",
       register: "register",
       lostPassword: "lostPassword",
+      resetPassword: "resetPassword",
       home: "home"
     },
 
@@ -21,6 +22,10 @@
 
     lostPassword: function() {
       this.changePage(App.Views.LostPasswordPage);
+    },
+
+    resetPassword: function() {
+      this.changePage(App.Views.ResetPasswordPage);
     },
 
     home: function() {

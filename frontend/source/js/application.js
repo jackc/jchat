@@ -7,6 +7,7 @@
 //= require views/home.js
 //= require views/login.js
 //= require views/lost_password.js
+//= require views/reset_password.js
 //= require views/register.js
 //= require views/header.js
 //= require views/working_notice.js

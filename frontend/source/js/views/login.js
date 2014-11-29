@@ -29,7 +29,7 @@
     }
     conn.login(credentials, {
       succeeded: this.onLoginSuccess,
-      failed: function(_, response) { this.onLoginFailure(response.responseText) }.bind(this)
+      failed: function(response) { this.onLoginFailure(response.message) }.bind(this)
     })
   }
 

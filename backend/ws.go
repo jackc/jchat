@@ -61,6 +61,8 @@ func (conn *ClientConn) Dispatch() {
 			response = conn.Login(req.Params)
 		case "request_password_reset":
 			response = conn.RequestPasswordReset(req.Params)
+		case "reset_password":
+			response = conn.ResetPassword(req.Params)
 		default:
 			// unknown req method
 			response.Error = &Error{Code: JSONRPCMethodNotFound, Message: "Method not found"}
@@ -198,5 +200,34 @@ func (conn *ClientConn) RequestPasswordReset(body json.RawMessage) (response Res
 	}
 
 	response.Result = true // don't reveal whether email address is taken or not
+	return response
+}
+
+func (conn *ClientConn) ResetPassword(body json.RawMessage) (response Response) {
+	var resetPassword struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+
+	err := json.Unmarshal(body, &resetPassword)
+	if err != nil {
+		response.Error = &Error{Code: JSONRPCParseError, Message: "Parse error"}
+		return response
+	}
+
+	var remoteIP string
+	remoteIP, _, err = net.SplitHostPort(conn.ws.Request().RemoteAddr)
+	if err != nil {
+		response.Error = &Error{Code: 10, Message: "Unable to get remoteIP"}
+		return response
+	}
+
+	err = conn.userRepo.SetPasswordByToken(resetPassword.Token, resetPassword.Password, remoteIP)
+	if err != nil {
+		response.Error = &Error{Code: 11, Message: "Failed to update password"}
+		return response
+	}
+
+	response.Result = true
 	return response
 }
