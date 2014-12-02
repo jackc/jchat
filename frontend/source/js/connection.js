@@ -2,6 +2,9 @@
   "use strict";
 
   window.Connection = function() {
+    this.readyForLogin = new signals.Signal();
+    this.restoredConnection = new signals.Signal();
+
     this.firstRequestStarted = new signals.Signal();
     this.lastRequestFinished = new signals.Signal();
 
@@ -9,9 +12,7 @@
     this.ws.onmessage = this.wsOnMessage.bind(this);
     this.ws.onclose = function() { console.log("socket closed"); };
     this.ws.onerror = function() { console.log("error"); };
-    this.ws.onopen = function() {
-      console.log("connected...");
-    }.bind(this);
+    this.ws.onopen = this.wsOnOpen.bind(this);
 
     this.pendingRequests = {}
 
@@ -44,6 +45,10 @@
       } else {
         this.onNotification(data)
       }
+    },
+
+    wsOnOpen: function() {
+      this.readyForLogin.dispatch()
     },
 
     onResponse: function(response) {
@@ -82,6 +87,20 @@
     },
 
     login: function(credentials, callbacks) {
+      if(typeof callbacks === 'undefined') {
+        callbacks = {}
+      }
+      if(callbacks.succeeded) {
+        var f = callbacks.succeeded
+        callbacks.succeeded = function(data) {
+          this.userID = data.userID
+          f(data)
+        }.bind(this)
+      } else {
+        callbacks.succeeded = function(data) {
+          this.userID = data.userID
+        }.bind(this)
+      }
       this.sendRequest("login", credentials, callbacks)
     },
 

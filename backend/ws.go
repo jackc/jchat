@@ -36,8 +36,8 @@ type Error struct {
 }
 
 type LoginSuccess struct {
-	Name string           `json:"name"`
-	Init *json.RawMessage `json:"init"`
+	UserID int32            `json:"userID"`
+	Init   *json.RawMessage `json:"init"`
 }
 
 const JSONRPCInvalidRequest = -32600
@@ -128,7 +128,7 @@ func (conn *ClientConn) Register(params json.RawMessage) (response Response) {
 	}
 
 	rawInit := json.RawMessage(initJSON)
-	response.Result = LoginSuccess{Name: conn.user.Name, Init: &rawInit}
+	response.Result = LoginSuccess{UserID: conn.user.ID, Init: &rawInit}
 
 	return response
 }
@@ -168,7 +168,7 @@ func (conn *ClientConn) Login(body json.RawMessage) (response Response) {
 	}
 
 	rawInit := json.RawMessage(initJSON)
-	response.Result = LoginSuccess{Name: conn.user.Name, Init: &rawInit}
+	response.Result = LoginSuccess{UserID: conn.user.ID, Init: &rawInit}
 
 	return response
 }
