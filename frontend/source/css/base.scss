@@ -150,6 +150,17 @@ input[type=submit] {
   }
 }
 
+#view > .home {
+  .channels {
+    width: 120px;
+    float: left;
+  }
+
+  .openChannel {
+    margin-left: 120px;
+  }
+}
+
 body > footer {
   text-align: center;
   color: $primary-color;

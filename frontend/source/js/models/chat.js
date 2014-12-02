@@ -17,8 +17,7 @@
       return new App.Models.Channel(c)
     })
 
-
-
+    this.openChannel = this.channels[0]
   }
 
   App.Models.Chat.prototype = {
