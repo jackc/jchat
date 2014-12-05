@@ -23,6 +23,9 @@
 
   p.logout = function(e) {
     e.preventDefault()
+
+    localStorage.clear()
+
     conn.logout()
     window.router.navigate("login")
   }

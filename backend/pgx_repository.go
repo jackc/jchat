@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/jackc/pgx"
 	"github.com/vaughan0/go-ini"
+	"io"
 	"strconv"
 )
 
@@ -67,6 +68,20 @@ func (repo *PgxUserRepository) Create(name, email, password string) (user User, 
 		digest,
 		salt,
 	).Scan(&user.ID, &user.Name, &user.Email)
+	if err != nil {
+		return user, err
+	}
+
+	return user, nil
+}
+
+func (repo *PgxUserRepository) GetUser(userID int32) (user User, err error) {
+	err = repo.pool.QueryRow("select id, name, email from users where id=$1",
+		userID,
+	).Scan(&user.ID, &user.Name, &user.Email)
+	if err == pgx.ErrNoRows {
+		return user, ErrNotFound
+	}
 	if err != nil {
 		return user, err
 	}
@@ -174,6 +189,65 @@ func (repo *PgxUserRepository) SetPasswordByToken(token, password string, comple
 	}
 
 	return nil
+}
+
+type PgxSessionRepository struct {
+	pool *pgx.ConnPool
+}
+
+func NewPgxSessionRepository(pool *pgx.ConnPool) *PgxSessionRepository {
+	return &PgxSessionRepository{pool: pool}
+}
+
+func (repo *PgxSessionRepository) CreateSession(userID int32) (sessionID string, err error) {
+	sessionBytes := make([]byte, 16)
+	_, err = io.ReadFull(rand.Reader, sessionBytes)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = repo.pool.Exec(`insert into sessions(id, user_id) values($1, $2)`, sessionBytes, userID)
+	if err != nil {
+		return "", err
+	}
+
+	sessionID = hex.EncodeToString(sessionBytes)
+
+	return sessionID, err
+}
+
+func (repo *PgxSessionRepository) DeleteSession(sessionID string) (err error) {
+	sessionBytes, err := hex.DecodeString(sessionID)
+	if err != nil {
+		return err
+	}
+
+	commandTag, err := repo.pool.Exec(`delete from sessions where id=$1`, sessionBytes)
+	if err != nil {
+		return err
+	}
+	if commandTag != "DELETE 1" {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+func (repo *PgxSessionRepository) GetUserIDBySessionID(sessionID string) (userID int32, err error) {
+	sessionBytes, err := hex.DecodeString(sessionID)
+	if err != nil {
+		return 0, err
+	}
+
+	err = repo.pool.QueryRow("select user_id from sessions where id=$1", sessionBytes).Scan(&userID)
+	if err == pgx.ErrNoRows {
+		return 0, ErrNotFound
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	return userID, nil
 }
 
 type PgxChatRepository struct {

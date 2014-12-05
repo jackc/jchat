@@ -194,6 +194,7 @@ func Serve(c *cli.Context) {
 	}
 
 	userRepo := NewPgxUserRepository(pool)
+	sessionRepo := NewPgxSessionRepository(pool)
 	chatRepo := NewPgxChatRepository(pool)
 
 	mailer, err := newMailer(conf, logger)
@@ -215,11 +216,12 @@ func Serve(c *cli.Context) {
 		defer ws.Close()
 
 		conn := &ClientConn{
-			ws:       ws,
-			userRepo: userRepo,
-			chatRepo: chatRepo,
-			logger:   logger,
-			mailer:   mailer,
+			ws:          ws,
+			userRepo:    userRepo,
+			sessionRepo: sessionRepo,
+			chatRepo:    chatRepo,
+			logger:      logger,
+			mailer:      mailer,
 		}
 
 		conn.Dispatch()

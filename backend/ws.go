@@ -9,12 +9,13 @@ import (
 )
 
 type ClientConn struct {
-	ws       *websocket.Conn
-	user     User
-	userRepo UserRepository
-	chatRepo ChatRepository
-	logger   log.Logger
-	mailer   Mailer
+	ws          *websocket.Conn
+	user        User
+	userRepo    UserRepository
+	sessionRepo SessionRepository
+	chatRepo    ChatRepository
+	logger      log.Logger
+	mailer      Mailer
 }
 
 type Request struct {
@@ -36,8 +37,8 @@ type Error struct {
 }
 
 type LoginSuccess struct {
-	UserID int32            `json:"userID"`
-	Init   *json.RawMessage `json:"init"`
+	UserID    int32  `json:"userID"`
+	SessionID string `json:"sessionID"`
 }
 
 const JSONRPCInvalidRequest = -32600
@@ -61,10 +62,14 @@ func (conn *ClientConn) Dispatch() {
 			response = conn.Register(req.Params)
 		case "login":
 			response = conn.Login(req.Params)
+		case "resume_session":
+			response = conn.ResumeSession(req.Params)
 		case "request_password_reset":
 			response = conn.RequestPasswordReset(req.Params)
 		case "reset_password":
 			response = conn.ResetPassword(req.Params)
+		case "init_chat":
+			response = conn.InitChat(req.Params)
 		default:
 			// unknown req method
 			response.Error = &Error{Code: JSONRPCMethodNotFound, Message: "Method not found"}
@@ -121,14 +126,13 @@ func (conn *ClientConn) Register(params json.RawMessage) (response Response) {
 		}
 	}
 
-	initJSON, err := conn.chatRepo.GetInit(conn.user.ID)
+	sessionID, err := conn.sessionRepo.CreateSession(conn.user.ID)
 	if err != nil {
-		response.Error = &Error{Code: 12, Message: "Unable to initialize chat"}
+		response.Error = &Error{Code: 5, Message: "Unable to create session"}
 		return response
 	}
 
-	rawInit := json.RawMessage(initJSON)
-	response.Result = LoginSuccess{UserID: conn.user.ID, Init: &rawInit}
+	response.Result = LoginSuccess{UserID: conn.user.ID, SessionID: sessionID}
 
 	return response
 }
@@ -161,14 +165,42 @@ func (conn *ClientConn) Login(body json.RawMessage) (response Response) {
 		return response
 	}
 
-	initJSON, err := conn.chatRepo.GetInit(conn.user.ID)
+	sessionID, err := conn.sessionRepo.CreateSession(conn.user.ID)
 	if err != nil {
-		response.Error = &Error{Code: 12, Message: "Unable to initialize chat"}
+		response.Error = &Error{Code: 5, Message: "Unable to create session"}
 		return response
 	}
 
-	rawInit := json.RawMessage(initJSON)
-	response.Result = LoginSuccess{UserID: conn.user.ID, Init: &rawInit}
+	response.Result = LoginSuccess{UserID: conn.user.ID, SessionID: sessionID}
+
+	return response
+}
+
+func (conn *ClientConn) ResumeSession(body json.RawMessage) (response Response) {
+	var credentials struct {
+		SessionID string `json:"session_id"`
+	}
+
+	err := json.Unmarshal(body, &credentials)
+	if err != nil {
+		response.Error = &Error{Code: JSONRPCParseError, Message: "Parse error"}
+		return response
+	}
+
+	if credentials.SessionID == "" {
+		response.Error = &Error{Code: JSONRPCInvalidParams, Message: "Invalid params", Data: `Request must include the attribute "session_id"`}
+		return response
+	}
+
+	userID, err := conn.sessionRepo.GetUserIDBySessionID(credentials.SessionID)
+	if err != nil {
+		response.Error = &Error{Code: 14, Message: "Cannot resume session"}
+		return response
+	}
+
+	conn.user, err = conn.userRepo.GetUser(userID)
+
+	response.Result = LoginSuccess{UserID: conn.user.ID, SessionID: credentials.SessionID}
 
 	return response
 }
@@ -248,5 +280,17 @@ func (conn *ClientConn) ResetPassword(body json.RawMessage) (response Response) 
 	}
 
 	response.Result = true
+	return response
+}
+
+func (conn *ClientConn) InitChat(body json.RawMessage) (response Response) {
+	initJSON, err := conn.chatRepo.GetInit(conn.user.ID)
+	if err != nil {
+		response.Error = &Error{Code: 12, Message: "Unable to initialize chat"}
+		return response
+	}
+
+	rawInit := json.RawMessage(initJSON)
+	response.Result = &rawInit
 	return response
 }

@@ -2,20 +2,19 @@
   "use strict";
 
   window.Connection = function() {
-    this.readyForLogin = new signals.Signal();
-    this.restoredConnection = new signals.Signal();
+    this.opened = new signals.Signal();
+    this.lost = new signals.Signal();
 
-    this.firstRequestStarted = new signals.Signal();
-    this.lastRequestFinished = new signals.Signal();
+    this.firstRequestStarted = new signals.Signal()
+    this.lastRequestFinished = new signals.Signal()
 
-    this.ws = new WebSocket(this.hostRelativeWsURI("/ws"));
-    this.ws.onmessage = this.wsOnMessage.bind(this);
-    this.ws.onclose = function() { console.log("socket closed"); };
-    this.ws.onerror = function() { console.log("error"); };
-    this.ws.onopen = this.wsOnOpen.bind(this);
+    this.ws = new WebSocket(this.hostRelativeWsURI("/ws"))
+    this.ws.onmessage = this.wsOnMessage.bind(this)
+    this.ws.onclose = function() { console.log("socket closed"); }
+    this.ws.onerror = this.wsOnError.bind(this)
+    this.ws.onopen = this.wsOnOpen.bind(this)
 
     this.pendingRequests = {}
-
   };
 
   Connection.prototype = {
@@ -47,8 +46,16 @@
       }
     },
 
+    wsOnError: function() {
+      this.lost.dispatch()
+    },
+
     wsOnOpen: function() {
-      this.readyForLogin.dispatch()
+      var sessionID = localStorage.getItem("sessionID")
+      if(sessionID) {
+      } {
+        this.opened.dispatch()
+      }
     },
 
     onResponse: function(response) {
@@ -86,6 +93,12 @@
       this.ws.send(JSON.stringify(msg))
     },
 
+    onSessionStart: function(data) {
+      this.userID = data.userID
+      this.sessionID = data.sessionID
+      localStorage.setItem("sessionID", this.sessionID)
+    },
+
     login: function(credentials, callbacks) {
       if(typeof callbacks === 'undefined') {
         callbacks = {}
@@ -93,13 +106,11 @@
       if(callbacks.succeeded) {
         var f = callbacks.succeeded
         callbacks.succeeded = function(data) {
-          this.userID = data.userID
+          this.onSessionStart(data)
           f(data)
         }.bind(this)
       } else {
-        callbacks.succeeded = function(data) {
-          this.userID = data.userID
-        }.bind(this)
+        callbacks.succeeded = this.onSessionStart.bind(this)
       }
       this.sendRequest("login", credentials, callbacks)
     },
@@ -114,12 +125,20 @@
       this.sendRequest("register", registration, callbacks)
     },
 
+    resumeSession: function(sessionID, callbacks) {
+      this.sendRequest("resume_session", {session_id: sessionID}, callbacks)
+    },
+
     requestPasswordReset: function(email, callbacks) {
       this.sendRequest("request_password_reset", {"email": email}, callbacks)
     },
 
     resetPassword: function(reset, callbacks) {
       this.sendRequest("reset_password", reset, callbacks)
+    },
+
+    initChat: function(callbacks) {
+      this.sendRequest("init_chat", {}, callbacks)
     }
   }
 })();

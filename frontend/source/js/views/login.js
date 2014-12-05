@@ -34,8 +34,14 @@
   }
 
   p.onLoginSuccess = function(data) {
-    window.chat = new App.Models.Chat(data.init)
-    window.router.navigate('home')
+    localStorage.setItem("sessionID", data.sessionID)
+
+    conn.initChat({
+      succeeded: function(data) {
+        window.chat = new App.Models.Chat(data)
+        window.router.navigate('home')
+      }
+    })
   }
 
   p.onLoginFailure = function(response) {

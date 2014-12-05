@@ -41,8 +41,14 @@
   }
 
   p.onRegistrationSuccess = function(data) {
-    window.chat = new App.Models.Chat(data.init)
-    window.router.navigate("home")
+    localStorage.setItem("sessionID", data.sessionID)
+
+    conn.initChat({
+      succeeded: function(data) {
+        window.chat = new App.Models.Chat(data)
+        window.router.navigate('home')
+      }
+    })
   }
 
   p.onRegistrationFailure = function(response) {
