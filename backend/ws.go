@@ -70,6 +70,8 @@ func (conn *ClientConn) Dispatch() {
 			response = conn.ResetPassword(req.Params)
 		case "init_chat":
 			response = conn.InitChat(req.Params)
+		case "post_message":
+			response = conn.PostMessage(req.Params)
 		default:
 			// unknown req method
 			response.Error = &Error{Code: JSONRPCMethodNotFound, Message: "Method not found"}
@@ -292,5 +294,27 @@ func (conn *ClientConn) InitChat(body json.RawMessage) (response Response) {
 
 	rawInit := json.RawMessage(initJSON)
 	response.Result = &rawInit
+	return response
+}
+
+func (conn *ClientConn) PostMessage(body json.RawMessage) (response Response) {
+	var message struct {
+		ChannelID int32  `json:"channel_id"`
+		Text      string `json:"text"`
+	}
+
+	err := json.Unmarshal(body, &message)
+	if err != nil {
+		response.Error = &Error{Code: JSONRPCParseError, Message: "Parse error"}
+		return response
+	}
+
+	_, err = conn.chatRepo.PostMessage(message.ChannelID, conn.user.ID, message.Text)
+	if err != nil {
+		response.Error = &Error{Code: 13, Message: "Unable to post message"}
+		return response
+	}
+
+	response.Result = true
 	return response
 }

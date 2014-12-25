@@ -29,7 +29,7 @@
     },
 
     home: function() {
-      this.changePage(App.Views.HomePage);
+      this.changePage(App.Views.HomePage, {chat: window.chat});
     },
 
     changePage: function(pageClass, options) {

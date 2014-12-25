@@ -68,12 +68,12 @@
         if(response.error && callbacks.failed) {
           callbacks.failed(response.error)
         }
+      }
 
-        delete this.pendingRequests[id]
+      delete this.pendingRequests[id]
 
-        if(Object.keys(this.pendingRequests).length === 0) {
-          this.lastRequestFinished.dispatch()
-        }
+      if(Object.keys(this.pendingRequests).length === 0) {
+        this.lastRequestFinished.dispatch()
       }
     },
 
@@ -139,6 +139,10 @@
 
     initChat: function(callbacks) {
       this.sendRequest("init_chat", {}, callbacks)
+    },
+
+    sendMessage: function(message, callbacks) {
+      this.sendRequest("post_message", message, callbacks)
     }
   }
 })();
