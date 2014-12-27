@@ -41,10 +41,11 @@ type Channel struct {
 }
 
 type Message struct {
-	ID       int64
-	AuthorID int32
-	Body     string
-	Time     time.Time
+	ID        int64
+	ChannelID int32
+	AuthorID  int32
+	Body      string
+	Time      time.Time
 }
 
 type SessionRepository interface {

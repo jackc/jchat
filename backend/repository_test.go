@@ -239,6 +239,9 @@ func testChatRepositoryListen(t *testing.T, repo ChatRepository, userID int32) {
 	if message.ID != messageID {
 		t.Errorf("Expected message.ID to be %v, but it was %v", messageID, message.ID)
 	}
+	if message.ChannelID != channelID {
+		t.Errorf("Expected message.ChannelID to be %v, but it was %v", channelID, message.ChannelID)
+	}
 	if message.AuthorID != userID {
 		t.Errorf("Expected message.AuthorID to be %v, but it was %v", userID, message.AuthorID)
 	}

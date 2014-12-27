@@ -47,45 +47,91 @@ const JSONRPCMethodNotFound = -32601
 const JSONRPCInvalidParams = -32602
 
 func (conn *ClientConn) Dispatch() {
-	var req Request
+	chatChan := conn.chatRepo.Listen()
+	defer conn.chatRepo.Unlisten(chatChan)
+
+	reqChan := make(chan Request)
+	errChan := make(chan error)
+
+	go func() {
+		var req Request
+
+		for {
+			err := websocket.JSON.Receive(conn.ws, &req)
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			reqChan <- req
+		}
+	}()
 
 	for {
-		err := websocket.JSON.Receive(conn.ws, &req)
-		if err != nil {
+		select {
+		case req := <-reqChan:
+			var response Response
+
+			switch req.Method {
+			case "register":
+				response = conn.Register(req.Params)
+			case "login":
+				response = conn.Login(req.Params)
+			case "resume_session":
+				response = conn.ResumeSession(req.Params)
+			case "request_password_reset":
+				response = conn.RequestPasswordReset(req.Params)
+			case "reset_password":
+				response = conn.ResetPassword(req.Params)
+			case "init_chat":
+				response = conn.InitChat(req.Params)
+			case "post_message":
+				response = conn.PostMessage(req.Params)
+			default:
+				// unknown req method
+				response.Error = &Error{Code: JSONRPCMethodNotFound, Message: "Method not found"}
+			}
+
+			response.ID = *req.ID
+
+			err := websocket.JSON.Send(conn.ws, response)
+			if err != nil {
+				fmt.Println(err)
+				// Failed to send
+				return
+			}
+		case message := <-chatChan:
+			var msg struct {
+				ID           int64  `json:"id"`
+				ChannelID    int32  `json:"channel_id"`
+				AuthorID     int32  `json:"author_id"`
+				Body         string `json:"body"`
+				CreationTime int64  `json:"creation_time"`
+			}
+
+			msg.ID = message.ID
+			msg.ChannelID = message.ChannelID
+			msg.AuthorID = message.AuthorID
+			msg.Body = message.Body
+			msg.CreationTime = message.Time.Unix()
+
+			var notification struct {
+				Method string      `json:"method"`
+				Params interface{} `json:"params"`
+			}
+
+			notification.Method = "message_posted"
+			notification.Params = msg
+			err := websocket.JSON.Send(conn.ws, notification)
+			if err != nil {
+				fmt.Println(err)
+				// Failed to send
+				return
+			}
+		case err := <-errChan:
+			fmt.Println("errChan: ", err)
 			return
 		}
-
-		var response Response
-
-		switch req.Method {
-		case "register":
-			response = conn.Register(req.Params)
-		case "login":
-			response = conn.Login(req.Params)
-		case "resume_session":
-			response = conn.ResumeSession(req.Params)
-		case "request_password_reset":
-			response = conn.RequestPasswordReset(req.Params)
-		case "reset_password":
-			response = conn.ResetPassword(req.Params)
-		case "init_chat":
-			response = conn.InitChat(req.Params)
-		case "post_message":
-			response = conn.PostMessage(req.Params)
-		default:
-			// unknown req method
-			response.Error = &Error{Code: JSONRPCMethodNotFound, Message: "Method not found"}
-		}
-
-		response.ID = *req.ID
-
-		err = websocket.JSON.Send(conn.ws, response)
-		if err != nil {
-			fmt.Println(err)
-			// Failed to send
-			return
-		}
-
 	}
 }
 

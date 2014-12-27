@@ -111,7 +111,7 @@
   }
 
   p.messageReceived = function() {
-    console.log("message received")
+    this.render()
   }
 
   App.Views.Message = function(options) {

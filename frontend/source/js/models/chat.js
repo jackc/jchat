@@ -11,6 +11,9 @@
     this.messageReceived = new signals.Signal()
 
     this.sendMessage = this.sendMessage.bind(this)
+    this.onMessagePosted = this.onMessagePosted.bind(this)
+
+    this.conn.messagePosted.add(this.onMessagePosted)
   }
 
   App.Models.Channel.prototype = {
@@ -20,6 +23,13 @@
 
     sendMessage: function(text) {
       this.conn.sendMessage({channel_id: this.id, text: text})
+    },
+
+    onMessagePosted: function(message) {
+      if(message.channel_id == this.id) {
+        this.messages.push(message)
+        this.messageReceived.dispatch()
+      }
     }
   }
 

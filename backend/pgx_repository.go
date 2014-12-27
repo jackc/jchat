@@ -287,7 +287,7 @@ func (repo *PgxChatRepository) GetChannels() (channels []Channel, err error) {
 }
 
 func (repo *PgxChatRepository) PostMessage(channelID int32, authorID int32, body string) (messageID int64, err error) {
-	message := Message{AuthorID: authorID, Body: body}
+	message := Message{ChannelID: channelID, AuthorID: authorID, Body: body}
 	err = repo.pool.QueryRow(
 		"insert into messages(channel_id, user_id, body) values($1, $2, $3) returning id, creation_time",
 		channelID,
@@ -298,12 +298,14 @@ func (repo *PgxChatRepository) PostMessage(channelID int32, authorID int32, body
 		return 0, err
 	}
 
-	repo.mutex.Lock()
-	defer repo.mutex.Unlock()
+	go func() {
+		repo.mutex.Lock()
+		defer repo.mutex.Unlock()
 
-	for _, l := range repo.listeners {
-		l <- message
-	}
+		for _, l := range repo.listeners {
+			l <- message
+		}
+	}()
 
 	return message.ID, nil
 }
@@ -332,13 +334,13 @@ func (repo *PgxChatRepository) GetInit(userID int32) (json []byte, err error) {
 	err = repo.pool.QueryRow(`
 		select row_to_json(t)
 		from (
-		  select json_agg(row_to_json(t)) as channels
+		  select coalesce(json_agg(row_to_json(t)), '[]'::json) as channels
 		  from (
 		    select
 		      id,
 		      name,
 		      (
-		        select json_agg(row_to_json(t))
+		        select coalesce(json_agg(row_to_json(t)), '[]'::json)
 		        from (
 		          select
 		            id,
