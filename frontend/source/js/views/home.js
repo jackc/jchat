@@ -138,6 +138,7 @@
     this.channel = options.channel
 
     this.onSubmit = this.onSubmit.bind(this)
+    this.onKeyPress = this.onKeyPress.bind(this)
   }
 
   App.Views.Composer.prototype = Object.create(view.View.prototype)
@@ -154,12 +155,24 @@
 
   p.listen = function() {
     this.el.querySelector("form").addEventListener("submit", this.onSubmit)
+    this.el.querySelector("form textarea").addEventListener("keypress", this.onKeyPress)
   }
 
   p.onSubmit = function(e) {
     e.preventDefault()
+    this.submit()
+  }
+
+  p.submit = function() {
     var textarea = this.el.querySelector("textarea")
     this.channel.sendMessage(textarea.value)
     textarea.value = ""
+  }
+
+  p.onKeyPress = function(e) {
+    if(e.keyCode == 13) {
+      e.preventDefault()
+      this.submit()
+    }
   }
 })()
