@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
 func TestPasswordDigestAndPasswordMatch(t *testing.T) {
@@ -206,5 +207,50 @@ func testChatRepository(t *testing.T, repo ChatRepository, userID int32) {
 	}
 	if messages[0].Body != "Hello, world" {
 		t.Errorf("Expect message to have Body %s, but it was %s", "Hello, world", messages[0].Body)
+	}
+}
+
+func testChatRepositoryListen(t *testing.T, repo ChatRepository, userID int32) {
+	channelID, err := repo.CreateChannel("Test", userID)
+	if err != nil {
+		t.Fatalf("repo.CreateChannel returned error: %v", err)
+	}
+
+	var message Message
+	finished := make(chan bool)
+
+	c := repo.Listen()
+	go func() {
+		message = <-c
+		finished <- true
+	}()
+
+	messageID, err := repo.PostMessage(channelID, userID, "Hello, world")
+	if err != nil {
+		t.Fatalf("repo.PostMessage returned error: %v", err)
+	}
+
+	select {
+	case <-finished:
+	case <-time.After(time.Millisecond * 100):
+		t.Fatal("Never received message on channel c")
+	}
+
+	if message.ID != messageID {
+		t.Errorf("Expected message.ID to be %v, but it was %v", messageID, message.ID)
+	}
+	if message.AuthorID != userID {
+		t.Errorf("Expected message.AuthorID to be %v, but it was %v", userID, message.AuthorID)
+	}
+	if message.Body != "Hello, world" {
+		t.Errorf("Expected message.Body to be %v, but it was %v", "Hello, world", message.Body)
+	}
+
+	repo.Unlisten(c)
+
+	// If the Unlisten didn't work this will hang
+	_, err = repo.PostMessage(channelID, userID, "Goodbye, world")
+	if err != nil {
+		t.Fatalf("repo.PostMessage returned error: %v", err)
 	}
 }

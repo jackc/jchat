@@ -89,3 +89,15 @@ func TestPgxChatRepository(t *testing.T) {
 	chatRepo := NewPgxChatRepository(connPool)
 	testChatRepository(t, chatRepo, user.ID)
 }
+
+func TestPgxChatRepositoryListen(t *testing.T) {
+	connPool := getPgxConnPool(t)
+	userRepo := NewPgxUserRepository(connPool)
+	user, err := userRepo.Create("test", "test@example.com", "secret")
+	if err != nil {
+		t.Fatalf("userRepo.Create unexpectedly failed: %v", err)
+	}
+
+	chatRepo := NewPgxChatRepository(connPool)
+	testChatRepositoryListen(t, chatRepo, user.ID)
+}

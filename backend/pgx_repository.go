@@ -8,6 +8,7 @@ import (
 	"github.com/vaughan0/go-ini"
 	"io"
 	"strconv"
+	"sync"
 )
 
 func newConnPool(conf ini.File) (*pgx.ConnPool, error) {
@@ -251,7 +252,9 @@ func (repo *PgxSessionRepository) GetUserIDBySessionID(sessionID string) (userID
 }
 
 type PgxChatRepository struct {
-	pool *pgx.ConnPool
+	pool      *pgx.ConnPool
+	listeners [](chan Message)
+	mutex     sync.Mutex
 }
 
 func NewPgxChatRepository(pool *pgx.ConnPool) *PgxChatRepository {
@@ -284,17 +287,25 @@ func (repo *PgxChatRepository) GetChannels() (channels []Channel, err error) {
 }
 
 func (repo *PgxChatRepository) PostMessage(channelID int32, authorID int32, body string) (messageID int64, err error) {
+	message := Message{AuthorID: authorID, Body: body}
 	err = repo.pool.QueryRow(
-		"insert into messages(channel_id, user_id, body) values($1, $2, $3) returning id",
+		"insert into messages(channel_id, user_id, body) values($1, $2, $3) returning id, creation_time",
 		channelID,
 		authorID,
 		body,
-	).Scan(&messageID)
+	).Scan(&message.ID, &message.Time)
 	if err != nil {
 		return 0, err
 	}
 
-	return messageID, nil
+	repo.mutex.Lock()
+	defer repo.mutex.Unlock()
+
+	for _, l := range repo.listeners {
+		l <- message
+	}
+
+	return message.ID, nil
 }
 
 func (repo *PgxChatRepository) GetMessages(channelID int32, beforeMessageID int32, maxCount int32) (messages []Message, err error) {
@@ -345,4 +356,26 @@ func (repo *PgxChatRepository) GetInit(userID int32) (json []byte, err error) {
 	`).Scan(&json)
 
 	return json, err
+}
+
+func (repo *PgxChatRepository) Listen() chan Message {
+	repo.mutex.Lock()
+	defer repo.mutex.Unlock()
+
+	c := make(chan Message)
+	repo.listeners = append(repo.listeners, c)
+	return c
+}
+
+func (repo *PgxChatRepository) Unlisten(c chan Message) {
+	repo.mutex.Lock()
+	defer repo.mutex.Unlock()
+
+	for i, l := range repo.listeners {
+		if c == l {
+			repo.listeners[i] = repo.listeners[len(repo.listeners)-1]
+			repo.listeners = repo.listeners[:len(repo.listeners)-1]
+			return
+		}
+	}
 }
