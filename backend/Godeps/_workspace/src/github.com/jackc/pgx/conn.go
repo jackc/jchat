@@ -549,7 +549,7 @@ func (c *Conn) sendPreparedQuery(ps *PreparedStatement, arguments ...interface{}
 			wbuf.WriteInt16(TextFormatCode)
 		default:
 			switch oid {
-			case BoolOid, ByteaOid, Int2Oid, Int4Oid, Int8Oid, Float4Oid, Float8Oid, TimestampTzOid, Int2ArrayOid, Int4ArrayOid, Int8ArrayOid, Float4ArrayOid, Float8ArrayOid, TextArrayOid, VarcharArrayOid, OidOid:
+			case BoolOid, ByteaOid, Int2Oid, Int4Oid, Int8Oid, Float4Oid, Float8Oid, TimestampTzOid, TimestampTzArrayOid, TimestampArrayOid, BoolArrayOid, Int2ArrayOid, Int4ArrayOid, Int8ArrayOid, Float4ArrayOid, Float8ArrayOid, TextArrayOid, VarcharArrayOid, OidOid:
 				wbuf.WriteInt16(BinaryFormatCode)
 			default:
 				wbuf.WriteInt16(TextFormatCode)
@@ -593,6 +593,8 @@ func (c *Conn) sendPreparedQuery(ps *PreparedStatement, arguments ...interface{}
 				err = encodeTimestampTz(wbuf, arguments[i])
 			case TimestampOid:
 				err = encodeTimestamp(wbuf, arguments[i])
+			case BoolArrayOid:
+				err = encodeBoolArray(wbuf, arguments[i])
 			case Int2ArrayOid:
 				err = encodeInt2Array(wbuf, arguments[i])
 			case Int4ArrayOid:
@@ -607,6 +609,10 @@ func (c *Conn) sendPreparedQuery(ps *PreparedStatement, arguments ...interface{}
 				err = encodeTextArray(wbuf, arguments[i], TextOid)
 			case VarcharArrayOid:
 				err = encodeTextArray(wbuf, arguments[i], VarcharOid)
+			case TimestampArrayOid:
+				err = encodeTimestampArray(wbuf, arguments[i], TimestampOid)
+			case TimestampTzArrayOid:
+				err = encodeTimestampArray(wbuf, arguments[i], TimestampTzOid)
 			case OidOid:
 				err = encodeOid(wbuf, arguments[i])
 			default:

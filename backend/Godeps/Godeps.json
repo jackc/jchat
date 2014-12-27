@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/jackc/jchat/backend",
-	"GoVersion": "go1.3",
+	"GoVersion": "go1.4",
 	"Deps": [
 		{
 			"ImportPath": "code.google.com/p/go.crypto/pbkdf2",
@@ -19,12 +19,8 @@
 		},
 		{
 			"ImportPath": "github.com/jackc/pgx",
-			"Comment": "v2.4.0-14-g721cb1f",
-			"Rev": "721cb1fd20ccaa80dcebc40ee32080f4418a39da"
-		},
-		{
-			"ImportPath": "github.com/jackc/quo_vadis",
-			"Rev": "d1031e8ac7381963dabd9816f6166a1f272003b7"
+			"Comment": "v2.4.0-30-gdaf2efa",
+			"Rev": "daf2efa3137769714e3347a1d95ac00f6ed7a6e9"
 		},
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",
@@ -32,8 +28,7 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net/websocket",
-			"Comment": "null-225",
-			"Rev": "d249ee5f3018b9bedb6a2262c62a16b278adca9e"
+			"Rev": "3053e46bf4d836639f474dd738a58070463890e9"
 		},
 		{
 			"ImportPath": "gopkg.in/inconshreveable/log15.v2",
