@@ -38,7 +38,7 @@
 
     conn.initChat({
       succeeded: function(data) {
-        window.chat = new App.Models.Chat(data)
+        window.chat = new App.Models.Chat(conn, data)
         window.router.navigate('home')
       }
     })
