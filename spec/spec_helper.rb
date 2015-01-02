@@ -26,6 +26,7 @@ RSpec.configure do |config|
 
   config.before(:each) do
     clean_database
+    create_channel name: "General"
     visit '/'
   end
 end

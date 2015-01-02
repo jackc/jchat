@@ -1,8 +1,8 @@
 module LoginHelper
-  def login(name:, password:)
+  def login(email:, password:)
     visit '/#login'
 
-    fill_in 'User name', with: name
+    fill_in 'Email', with: email
     fill_in 'Password', with: password
 
     click_on 'Login'

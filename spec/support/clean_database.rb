@@ -1,5 +1,5 @@
 def clean_database
-  DB.tables.reject { |t| t == :schema_version }.each do |t|
+  %i[messages channels password_resets users].each do |t|
     DB[t].delete
   end
 end
