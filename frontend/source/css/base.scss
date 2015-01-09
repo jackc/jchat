@@ -10,7 +10,7 @@ body {
   background-color: #eee;
 }
 
-form {
+form.standard {
   margin: 1em;
   padding: 1em;
   background-color: $light-contrast-color;
@@ -33,6 +33,20 @@ form {
 
   input[type=file] {
     margin-bottom: 0.5em;
+  }
+
+  input[type=submit] {
+    background-color: $primary-color;
+    color: $light-contrast-color;
+    border-radius: 4px;
+    font-size: 1.5em;
+    font-weight: bold;
+    padding: 4px 8px 4px 8px;
+    border: none;
+
+    &:hover {
+      color: white;
+    }
   }
 }
 
@@ -107,20 +121,6 @@ a.button {
   }
 }
 
-input[type=submit] {
-  background-color: $primary-color;
-  color: $light-contrast-color;
-  border-radius: 4px;
-  font-size: 1.5em;
-  font-weight: bold;
-  padding: 4px 8px 4px 8px;
-  border: none;
-
-  &:hover {
-    color: white;
-  }
-}
-
 #view > .login, #view > .register {
   form {
     margin: 1em auto 0 auto;
@@ -171,6 +171,12 @@ input[type=submit] {
       }
 
       margin-bottom: 1em;
+    }
+
+    .composer {
+      textarea {
+        width: 80%;
+      }
     }
   }
 }
