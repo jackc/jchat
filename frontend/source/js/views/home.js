@@ -139,7 +139,7 @@
 
     var attrs = {
       author_name: user.name,
-      post_time: new Date(this.model.creation_time),
+      post_time: new Date(this.model.creation_time * 1000),
       body: this.model.body
     }
 
