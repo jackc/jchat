@@ -183,6 +183,9 @@
       this.el.appendChild(v.render())
     }, this)
 
+    // run after this is put on the page
+    setTimeout(function() { this.el.scrollTop = this.el.scrollHeight }.bind(this), 0);
+
     return this.el
   }
 

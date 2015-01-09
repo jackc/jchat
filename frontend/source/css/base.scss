@@ -173,15 +173,22 @@ a.button {
   .openChannel {
     margin-left: 180px;
 
-    .message {
-      .author {
-        font-weight: bold;
-      }
+    .messages {
+      max-height: 500px;
+      overflow-y: scroll;
 
-      .time {
-        padding-left: 1em;
-        font-size: 0.75em;
-        color: grey;
+      .message {
+        .author {
+          font-weight: bold;
+        }
+
+        .time {
+          padding-left: 1em;
+          font-size: 0.75em;
+          color: grey;
+        }
+
+        margin-bottom: 1em;
       }
 
       margin-bottom: 1em;
@@ -189,7 +196,14 @@ a.button {
 
     .composer {
       textarea {
+        vertical-align: top;
         width: 80%;
+        height: 40px;
+      }
+
+      input[type=submit] {
+        vertical-align: top;
+        height: 40px;
       }
     }
   }
