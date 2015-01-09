@@ -21,7 +21,7 @@ func (e DuplicationError) Error() string {
 
 type UserRepository interface {
 	GetUser(userID int32) (user User, err error)
-	Create(name, email, password string) (user User, err error)
+	CreateUser(name, email, password string) (user User, err error)
 	Login(email, password string) (user User, err error)
 	SetPassword(userID int32, password string) (err error)
 

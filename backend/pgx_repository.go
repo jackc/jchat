@@ -56,7 +56,7 @@ func NewPgxUserRepository(pool *pgx.ConnPool) *PgxUserRepository {
 	return &PgxUserRepository{pool: pool}
 }
 
-func (repo *PgxUserRepository) Create(name, email, password string) (user User, err error) {
+func (repo *PgxUserRepository) CreateUser(name, email, password string) (user User, err error) {
 	digest, salt, err := DigestPassword(password)
 	if err != nil {
 		return user, err

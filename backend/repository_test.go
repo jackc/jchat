@@ -23,7 +23,7 @@ func TestPasswordDigestAndPasswordMatch(t *testing.T) {
 }
 
 func testUserRepositoryCreateAndLoginCycle(t *testing.T, repo UserRepository) {
-	createdUser, err := repo.Create("tester", "tester@example.com", "secret")
+	createdUser, err := repo.CreateUser("tester", "tester@example.com", "secret")
 	if err != nil {
 		t.Fatalf("repo.Create returned error: %v", err)
 	}
@@ -39,7 +39,7 @@ func testUserRepositoryCreateAndLoginCycle(t *testing.T, repo UserRepository) {
 }
 
 func testUserRepositoryGetUser(t *testing.T, repo UserRepository) {
-	createdUser, err := repo.Create("tester", "tester@example.com", "secret")
+	createdUser, err := repo.CreateUser("tester", "tester@example.com", "secret")
 	if err != nil {
 		t.Fatalf("repo.Create returned error: %v", err)
 	}
@@ -55,7 +55,7 @@ func testUserRepositoryGetUser(t *testing.T, repo UserRepository) {
 }
 
 func testUserRepositorySetPassword(t *testing.T, repo UserRepository) {
-	user, err := repo.Create("tester", "tester@example.com", "oldpassword")
+	user, err := repo.CreateUser("tester", "tester@example.com", "oldpassword")
 	if err != nil {
 		t.Fatalf("repo.Create returned error: %v", err)
 	}
@@ -89,7 +89,7 @@ func testUserRepositoryResetPasswordsLifeCycle(t *testing.T, repo UserRepository
 		t.Fatalf("repo.CreatePasswordResetToken with invalid email should have returned ErrNotFound, but was: %v", err)
 	}
 
-	user, err := repo.Create("tester", "tester@example.com", "oldpassword")
+	user, err := repo.CreateUser("tester", "tester@example.com", "oldpassword")
 	if err != nil {
 		t.Fatalf("repo.Create returned error: %v", err)
 	}

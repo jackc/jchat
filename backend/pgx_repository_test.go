@@ -69,7 +69,7 @@ func TestPgxUserRepositorySetPassword(t *testing.T) {
 func TestPgxSessionRepository(t *testing.T) {
 	connPool := getPgxConnPool(t)
 	userRepo := NewPgxUserRepository(connPool)
-	user, err := userRepo.Create("test", "test@example.com", "secret")
+	user, err := userRepo.CreateUser("test", "test@example.com", "secret")
 	if err != nil {
 		t.Fatalf("userRepo.Create unexpectedly failed: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestPgxSessionRepository(t *testing.T) {
 func TestPgxChatRepository(t *testing.T) {
 	connPool := getPgxConnPool(t)
 	userRepo := NewPgxUserRepository(connPool)
-	user, err := userRepo.Create("test", "test@example.com", "secret")
+	user, err := userRepo.CreateUser("test", "test@example.com", "secret")
 	if err != nil {
 		t.Fatalf("userRepo.Create unexpectedly failed: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestPgxChatRepository(t *testing.T) {
 func TestPgxChatRepositoryListen(t *testing.T) {
 	connPool := getPgxConnPool(t)
 	userRepo := NewPgxUserRepository(connPool)
-	user, err := userRepo.Create("test", "test@example.com", "secret")
+	user, err := userRepo.CreateUser("test", "test@example.com", "secret")
 	if err != nil {
 		t.Fatalf("userRepo.Create unexpectedly failed: %v", err)
 	}

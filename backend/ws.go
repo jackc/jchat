@@ -163,7 +163,7 @@ func (conn *ClientConn) Register(params json.RawMessage) (response Response) {
 		return response
 	}
 
-	conn.user, err = conn.userRepo.Create(registration.Name, registration.Email, registration.Password)
+	conn.user, err = conn.userRepo.CreateUser(registration.Name, registration.Email, registration.Password)
 	if err != nil {
 		if err, ok := err.(DuplicationError); ok {
 			response.Error = &Error{Code: 2, Message: "Already taken", Data: err.Field}
