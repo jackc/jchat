@@ -41,9 +41,20 @@
     this.channels = attrs.channels.map(function(c) {
       return new App.Models.Channel(this.conn, c)
     }.bind(this))
+
+    this.selectedChannel = this.channels[0]
+
+    this.channelChanged = new signals.Signal()
   }
 
   App.Models.Chat.prototype = {
+    changeChannel: function(channel) {
+      if(channel == this.selectedChannel) {
+        return
+      }
 
+      this.selectedChannel = channel
+      this.channelChanged.dispatch(channel)
+    }
   }
 })();

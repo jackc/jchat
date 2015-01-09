@@ -10,10 +10,10 @@
     this.header = this.createChild(App.Views.LoggedInHeader)
     this.header.render()
 
-    this.channels = this.createChild(App.Views.Channels, {chat: this.chat})
-    this.channels.render()
+    this.channelList = this.createChild(App.Views.ChannelList, {chat: this.chat})
+    this.channelList.render()
 
-    this.openChannel = this.createChild(App.Views.OpenChannel, {channel: this.chat.channels[0], users: this.chat.users})
+    this.openChannel = this.createChild(App.Views.OpenChannel, {chat: this.chat})
     this.openChannel.render()
   }
 
@@ -25,37 +25,60 @@
   p.render = function() {
     this.el.innerHTML = ""
     this.el.appendChild(this.header.el)
-    this.el.appendChild(this.channels.el)
+    this.el.appendChild(this.channelList.el)
     this.el.appendChild(this.openChannel.el)
     return this.el
   }
 
 
-  App.Views.Channels = function(options) {
+  App.Views.ChannelList = function(options) {
     view.View.call(this, "ol")
     this.el.className = "channels"
     this.chat = options.chat
+
+    this.channelSelected = this.channelSelected.bind(this)
+
+    this.channelViews = this.chat.channels.map(function(c) {
+      return this.createChild(App.Views.Channel, {chat: this.chat, channel: c})
+    }, this)
+
+    this.channelViews.forEach(function(cv) {
+      cv.selected.add(this.channelSelected)
+      this.el.appendChild(cv.render())
+    }, this)
   }
 
-  App.Views.Channels.prototype = Object.create(view.View.prototype)
+  App.Views.ChannelList.prototype = Object.create(view.View.prototype)
 
-  var p = App.Views.Channels.prototype
+  var p = App.Views.ChannelList.prototype
 
   p.render = function() {
     this.el.innerHTML = ""
 
-    this.chat.channels.forEach(function(c) {
-      var v = new App.Views.Channel({model: c})
-      this.el.appendChild(v.render())
+    this.channelViews.forEach(function(cv) {
+      this.el.appendChild(cv.render())
     }, this)
+
     return this.el
+  }
+
+  p.channelSelected = function(channelView) {
+    this.chat.changeChannel(channelView.channel)
   }
 
 
   App.Views.Channel = function(options) {
     view.View.call(this, "li")
 
-    this.model = options.model
+    this.chat = options.chat
+    this.channel = options.channel
+
+    this.selected = new signals.Signal()
+
+    this.onChannelChanged = this.onChannelChanged.bind(this)
+    this.chat.channelChanged.add(this.onChannelChanged)
+
+    this.listen()
   }
 
   App.Views.Channel.prototype = Object.create(view.View.prototype)
@@ -65,27 +88,44 @@
   p.template = JST["templates/channel"]
 
   p.render = function() {
-    this.el.innerHTML = this.template(this.model)
-    this.listen()
+    this.el.innerHTML = this.template(this.channel)
+    if(this.channel == this.chat.selectedChannel) {
+      this.el.classList.add("selected")
+    }
+
     return this.el
   }
 
   p.listen = function() {
-    this.el.addEventListener("click", function() { console.log("Hello")} )
+    this.el.addEventListener("click", function() { this.selected.dispatch(this) }.bind(this) )
+  }
+
+  p.onChannelChanged = function(channel) {
+    if(this.channel == channel) {
+      console.log("adding class")
+      this.el.classList.add("selected")
+    } else {
+      console.log("removing class")
+      this.el.classList.remove("selected")
+    }
   }
 
 
   App.Views.OpenChannel = function(options) {
     view.View.call(this, "div")
     this.el.className = "openChannel"
-    this.users = options.users
-    this.channel = options.channel
+    this.chat = options.chat
+    this.users = this.chat.users
+    this.channel = this.chat.selectedChannel
 
-    this.messages = this.createChild(App.Views.OpenChannelMessages, {channel: this.channel, users: this.users})
-    this.messages.render()
+    this.onChannelChanged = this.onChannelChanged.bind(this)
+    this.chat.channelChanged.add(this.onChannelChanged)
 
-    this.composer = this.createChild(App.Views.Composer, {channel: this.channel})
-    this.composer.render()
+    this.messagesView = this.createChild(App.Views.OpenChannelMessages, {channel: this.channel, users: this.users})
+    this.messagesView.render()
+
+    this.composerView = this.createChild(App.Views.Composer, {channel: this.channel})
+    this.composerView.render()
   }
 
   App.Views.OpenChannel.prototype = Object.create(view.View.prototype)
@@ -95,10 +135,25 @@
   p.render = function() {
     this.el.innerHTML = ""
 
-    this.el.appendChild(this.messages.el)
-    this.el.appendChild(this.composer.el)
+    this.el.appendChild(this.messagesView.el)
+    this.el.appendChild(this.composerView.el)
 
     return this.el
+  }
+
+  p.onChannelChanged = function(channel) {
+    this.channel = channel
+
+    this.removeChild(this.messagesView)
+    this.removeChild(this.composerView)
+
+    this.messagesView = this.createChild(App.Views.OpenChannelMessages, {channel: this.channel, users: this.users})
+    this.messagesView.render()
+
+    this.composerView = this.createChild(App.Views.Composer, {channel: this.channel})
+    this.composerView.render()
+
+    this.render()
   }
 
   App.Views.OpenChannelMessages = function(options) {
