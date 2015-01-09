@@ -81,17 +81,39 @@
     this.users = options.users
     this.channel = options.channel
 
+    this.messages = this.createChild(App.Views.OpenChannelMessages, {channel: this.channel, users: this.users})
+    this.messages.render()
+
     this.composer = this.createChild(App.Views.Composer, {channel: this.channel})
     this.composer.render()
-
-    this.messageReceived = this.messageReceived.bind(this)
-
-    this.channel.messageReceived.add(this.messageReceived)
   }
 
   App.Views.OpenChannel.prototype = Object.create(view.View.prototype)
 
   var p = App.Views.OpenChannel.prototype
+
+  p.render = function() {
+    this.el.innerHTML = ""
+
+    this.el.appendChild(this.messages.el)
+    this.el.appendChild(this.composer.el)
+
+    return this.el
+  }
+
+  App.Views.OpenChannelMessages = function(options) {
+    view.View.call(this, "div")
+    this.el.className = "messages"
+    this.users = options.users
+    this.channel = options.channel
+
+    this.messageReceived = this.messageReceived.bind(this)
+    this.channel.messageReceived.add(this.messageReceived)
+  }
+
+  App.Views.OpenChannelMessages.prototype = Object.create(view.View.prototype)
+
+  var p = App.Views.OpenChannelMessages.prototype
 
   p.destructor = function() {
     // TODO - call this from somewhere...
@@ -105,8 +127,6 @@
       var v = new App.Views.Message({model: m, users: this.users})
       this.el.appendChild(v.render())
     }, this)
-
-    this.el.appendChild(this.composer.el)
 
     return this.el
   }
@@ -131,7 +151,7 @@
   p.render = function() {
     var user
     for(var i = 0; i < this.users.length; i++) {
-      if(this.users[i].id == this.model.user_id) {
+      if(this.users[i].id == this.model.author_id) {
         user = this.users[i]
         break
       }

@@ -330,7 +330,7 @@ from (
             from (
               select
                 id,
-                user_id,
+                user_id as author_id,
                 body,
                 extract(epoch from creation_time::timestamptz(0)) as creation_time
               from messages
