@@ -157,7 +157,21 @@ input[type=submit] {
   }
 
   .openChannel {
-    margin-left: 120px;
+    margin-left: 180px;
+
+    .message {
+      .author {
+        font-weight: bold;
+      }
+
+      .time {
+        padding-left: 1em;
+        font-size: 0.75em;
+        color: grey;
+      }
+
+      margin-bottom: 1em;
+    }
   }
 }
 
