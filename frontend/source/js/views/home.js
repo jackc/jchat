@@ -13,7 +13,7 @@
     this.channels = this.createChild(App.Views.Channels, {chat: this.chat})
     this.channels.render()
 
-    this.openChannel = this.createChild(App.Views.OpenChannel, {channel: this.chat.channels[0]})
+    this.openChannel = this.createChild(App.Views.OpenChannel, {channel: this.chat.channels[0], users: this.chat.users})
     this.openChannel.render()
   }
 
@@ -78,6 +78,7 @@
   App.Views.OpenChannel = function(options) {
     view.View.call(this, "div")
     this.el.className = "openChannel"
+    this.users = options.users
     this.channel = options.channel
 
     this.composer = this.createChild(App.Views.Composer, {channel: this.channel})
@@ -101,7 +102,7 @@
     this.el.innerHTML = ""
 
     this.channel.messages.forEach(function(m) {
-      var v = new App.Views.Message({model: m})
+      var v = new App.Views.Message({model: m, users: this.users})
       this.el.appendChild(v.render())
     }, this)
 
@@ -118,6 +119,7 @@
     view.View.call(this, "div")
     this.el.className = "message"
     this.model = options.model
+    this.users = options.users
   }
 
   App.Views.Message.prototype = Object.create(view.View.prototype)
@@ -127,8 +129,16 @@
   p.template = JST["templates/message"]
 
   p.render = function() {
+    var user
+    for(var i = 0; i < this.users.length; i++) {
+      if(this.users[i].id == this.model.user_id) {
+        user = this.users[i]
+        break
+      }
+    }
+
     var attrs = {
-      author_name: this.model.user_id,
+      author_name: user.name,
       post_time: new Date(this.model.creation_time),
       body: this.model.body
     }

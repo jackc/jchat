@@ -316,29 +316,40 @@ func (repo *PgxRepository) GetMessages(channelID int32, beforeMessageID int32, m
 
 func (repo *PgxRepository) GetInit(userID int32) (json []byte, err error) {
 	err = repo.pool.QueryRow(`
-		select row_to_json(t)
-		from (
-		  select coalesce(json_agg(row_to_json(t)), '[]'::json) as channels
-		  from (
-		    select
-		      id,
-		      name,
-		      (
-		        select coalesce(json_agg(row_to_json(t)), '[]'::json)
-		        from (
-		          select
-		            id,
-		            user_id,
-		            body,
-		            extract(epoch from creation_time::timestamptz(0)) as creation_time
-		          from messages
-		          where messages.channel_id=channels.id
-		          order by creation_time asc
-		        ) t
-		      ) messages
-		    from channels
-		  ) t
-		) t
+select row_to_json(t)
+from (
+  select
+    (
+      select coalesce(json_agg(row_to_json(t)), '[]'::json)
+      from (
+        select
+          id,
+          name,
+          (
+            select coalesce(json_agg(row_to_json(t)), '[]'::json)
+            from (
+              select
+                id,
+                user_id,
+                body,
+                extract(epoch from creation_time::timestamptz(0)) as creation_time
+              from messages
+              where messages.channel_id=channels.id
+              order by creation_time asc
+            ) t
+          ) messages
+        from channels
+      ) t
+    ) as channels,
+    (
+      select coalesce(json_agg(row_to_json(t)), '[]'::json)
+      from (
+        select id, name
+        from users
+        order by users.name
+      ) t
+    ) as users
+) t
 	`).Scan(&json)
 
 	return json, err

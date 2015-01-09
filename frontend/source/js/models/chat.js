@@ -36,6 +36,8 @@
   App.Models.Chat = function(conn, attrs) {
     this.conn = conn
 
+    this.users = attrs.users
+
     this.channels = attrs.channels.map(function(c) {
       return new App.Models.Channel(this.conn, c)
     }.bind(this))
