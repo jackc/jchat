@@ -127,7 +127,13 @@
   p.template = JST["templates/message"]
 
   p.render = function() {
-    this.el.innerHTML = this.template(this.model)
+    var attrs = {
+      author_name: this.model.user_id,
+      post_time: new Date(this.model.creation_time),
+      body: this.model.body
+    }
+
+    this.el.innerHTML = this.template(attrs)
     return this.el
   }
 
