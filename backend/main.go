@@ -93,16 +93,6 @@ func setFilterHandler(level string, logger log.Logger, handler log.Handler) erro
 	return nil
 }
 
-func newRepo(conf ini.File, logger log.Logger) (UserRepository, error) {
-	pool, err := newConnPool(conf)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create pgx connection pool: %v", err)
-	}
-
-	repo := NewPgxUserRepository(pool)
-	return repo, nil
-}
-
 func loadHTTPConfig(c *cli.Context, conf ini.File) (httpConfig, error) {
 	config := httpConfig{}
 	config.listenAddress = c.String("address")
@@ -193,9 +183,7 @@ func Serve(c *cli.Context) {
 		os.Exit(1)
 	}
 
-	userRepo := NewPgxUserRepository(pool)
-	sessionRepo := NewPgxSessionRepository(pool)
-	chatRepo := NewPgxChatRepository(pool)
+	repo := NewPgxRepository(pool)
 
 	mailer, err := newMailer(conf, logger)
 	if err != nil {
@@ -217,9 +205,9 @@ func Serve(c *cli.Context) {
 
 		conn := &ClientConn{
 			ws:          ws,
-			userRepo:    userRepo,
-			sessionRepo: sessionRepo,
-			chatRepo:    chatRepo,
+			userRepo:    repo,
+			sessionRepo: repo,
+			chatRepo:    repo,
 			logger:      logger,
 			mailer:      mailer,
 		}

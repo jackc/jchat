@@ -51,53 +51,50 @@ func mustExec(t testing.TB, sql string, arguments ...interface{}) (commandTag pg
 	return commandTag
 }
 
-func TestPgxUserRepositoryCreateAndLoginCycle(t *testing.T) {
-	repo := NewPgxUserRepository(getPgxConnPool(t))
+func TestPgxRepositoryCreateAndLoginCycle(t *testing.T) {
+	repo := NewPgxRepository(getPgxConnPool(t))
 	testUserRepositoryCreateAndLoginCycle(t, repo)
 }
 
-func TestPgxUserRepositoryGetUser(t *testing.T) {
-	repo := NewPgxUserRepository(getPgxConnPool(t))
+func TestPgxRepositoryGetUser(t *testing.T) {
+	repo := NewPgxRepository(getPgxConnPool(t))
 	testUserRepositoryGetUser(t, repo)
 }
 
-func TestPgxUserRepositorySetPassword(t *testing.T) {
-	repo := NewPgxUserRepository(getPgxConnPool(t))
+func TestPgxRepositorySetPassword(t *testing.T) {
+	repo := NewPgxRepository(getPgxConnPool(t))
 	testUserRepositorySetPassword(t, repo)
 }
 
-func TestPgxSessionRepository(t *testing.T) {
+func TestPgxRepositorySession(t *testing.T) {
 	connPool := getPgxConnPool(t)
-	userRepo := NewPgxUserRepository(connPool)
-	user, err := userRepo.CreateUser("test", "test@example.com", "secret")
+	repo := NewPgxRepository(connPool)
+	user, err := repo.CreateUser("test", "test@example.com", "secret")
 	if err != nil {
-		t.Fatalf("userRepo.Create unexpectedly failed: %v", err)
+		t.Fatalf("repo.Create unexpectedly failed: %v", err)
 	}
 
-	sessionRepo := NewPgxSessionRepository(connPool)
-	testSessionRepository(t, sessionRepo, user.ID)
+	testSessionRepository(t, repo, user.ID)
 }
 
-func TestPgxChatRepository(t *testing.T) {
+func TestPgxRepositoryChat(t *testing.T) {
 	connPool := getPgxConnPool(t)
-	userRepo := NewPgxUserRepository(connPool)
-	user, err := userRepo.CreateUser("test", "test@example.com", "secret")
+	repo := NewPgxRepository(connPool)
+	user, err := repo.CreateUser("test", "test@example.com", "secret")
 	if err != nil {
-		t.Fatalf("userRepo.Create unexpectedly failed: %v", err)
+		t.Fatalf("repo.Create unexpectedly failed: %v", err)
 	}
 
-	chatRepo := NewPgxChatRepository(connPool)
-	testChatRepository(t, chatRepo, user.ID)
+	testChatRepository(t, repo, user.ID)
 }
 
-func TestPgxChatRepositoryListen(t *testing.T) {
+func TestPgxRepositoryListen(t *testing.T) {
 	connPool := getPgxConnPool(t)
-	userRepo := NewPgxUserRepository(connPool)
-	user, err := userRepo.CreateUser("test", "test@example.com", "secret")
+	repo := NewPgxRepository(connPool)
+	user, err := repo.CreateUser("test", "test@example.com", "secret")
 	if err != nil {
-		t.Fatalf("userRepo.Create unexpectedly failed: %v", err)
+		t.Fatalf("repo.Create unexpectedly failed: %v", err)
 	}
 
-	chatRepo := NewPgxChatRepository(connPool)
-	testChatRepositoryListen(t, chatRepo, user.ID)
+	testChatRepositoryListen(t, repo, user.ID)
 }

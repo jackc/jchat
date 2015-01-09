@@ -48,15 +48,17 @@ func newConnPool(conf ini.File) (*pgx.ConnPool, error) {
 	return pool, nil
 }
 
-type PgxUserRepository struct {
-	pool *pgx.ConnPool
+type PgxRepository struct {
+	pool      *pgx.ConnPool
+	listeners [](chan Message)
+	mutex     sync.Mutex
 }
 
-func NewPgxUserRepository(pool *pgx.ConnPool) *PgxUserRepository {
-	return &PgxUserRepository{pool: pool}
+func NewPgxRepository(pool *pgx.ConnPool) *PgxRepository {
+	return &PgxRepository{pool: pool}
 }
 
-func (repo *PgxUserRepository) CreateUser(name, email, password string) (user User, err error) {
+func (repo *PgxRepository) CreateUser(name, email, password string) (user User, err error) {
 	digest, salt, err := DigestPassword(password)
 	if err != nil {
 		return user, err
@@ -76,7 +78,7 @@ func (repo *PgxUserRepository) CreateUser(name, email, password string) (user Us
 	return user, nil
 }
 
-func (repo *PgxUserRepository) GetUser(userID int32) (user User, err error) {
+func (repo *PgxRepository) GetUser(userID int32) (user User, err error) {
 	err = repo.pool.QueryRow("select id, name, email from users where id=$1",
 		userID,
 	).Scan(&user.ID, &user.Name, &user.Email)
@@ -90,7 +92,7 @@ func (repo *PgxUserRepository) GetUser(userID int32) (user User, err error) {
 	return user, nil
 }
 
-func (repo *PgxUserRepository) Login(email, password string) (user User, err error) {
+func (repo *PgxRepository) Login(email, password string) (user User, err error) {
 	var digest, salt []byte
 
 	err = repo.pool.QueryRow("select id, name, email, password_digest, password_salt from users where email=$1",
@@ -110,7 +112,7 @@ func (repo *PgxUserRepository) Login(email, password string) (user User, err err
 	return user, nil
 }
 
-func (repo *PgxUserRepository) SetPassword(userID int32, password string) (err error) {
+func (repo *PgxRepository) SetPassword(userID int32, password string) (err error) {
 	digest, salt, err := DigestPassword(password)
 	if err != nil {
 		return err
@@ -127,7 +129,7 @@ func (repo *PgxUserRepository) SetPassword(userID int32, password string) (err e
 	return nil
 }
 
-func (repo *PgxUserRepository) CreatePasswordResetToken(email string, requestIP string) (token string, err error) {
+func (repo *PgxRepository) CreatePasswordResetToken(email string, requestIP string) (token string, err error) {
 	var userID int32
 	err = repo.pool.QueryRow("select id from users where email=$1",
 		email,
@@ -156,7 +158,7 @@ func (repo *PgxUserRepository) CreatePasswordResetToken(email string, requestIP 
 	return token, nil
 }
 
-func (repo *PgxUserRepository) SetPasswordByToken(token, password string, completionIP string) error {
+func (repo *PgxRepository) SetPasswordByToken(token, password string, completionIP string) error {
 	digest, salt, err := DigestPassword(password)
 	if err != nil {
 		return err
@@ -192,15 +194,7 @@ func (repo *PgxUserRepository) SetPasswordByToken(token, password string, comple
 	return nil
 }
 
-type PgxSessionRepository struct {
-	pool *pgx.ConnPool
-}
-
-func NewPgxSessionRepository(pool *pgx.ConnPool) *PgxSessionRepository {
-	return &PgxSessionRepository{pool: pool}
-}
-
-func (repo *PgxSessionRepository) CreateSession(userID int32) (sessionID string, err error) {
+func (repo *PgxRepository) CreateSession(userID int32) (sessionID string, err error) {
 	sessionBytes := make([]byte, 16)
 	_, err = io.ReadFull(rand.Reader, sessionBytes)
 	if err != nil {
@@ -217,7 +211,7 @@ func (repo *PgxSessionRepository) CreateSession(userID int32) (sessionID string,
 	return sessionID, err
 }
 
-func (repo *PgxSessionRepository) DeleteSession(sessionID string) (err error) {
+func (repo *PgxRepository) DeleteSession(sessionID string) (err error) {
 	sessionBytes, err := hex.DecodeString(sessionID)
 	if err != nil {
 		return err
@@ -234,7 +228,7 @@ func (repo *PgxSessionRepository) DeleteSession(sessionID string) (err error) {
 	return nil
 }
 
-func (repo *PgxSessionRepository) GetUserIDBySessionID(sessionID string) (userID int32, err error) {
+func (repo *PgxRepository) GetUserIDBySessionID(sessionID string) (userID int32, err error) {
 	sessionBytes, err := hex.DecodeString(sessionID)
 	if err != nil {
 		return 0, err
@@ -251,17 +245,7 @@ func (repo *PgxSessionRepository) GetUserIDBySessionID(sessionID string) (userID
 	return userID, nil
 }
 
-type PgxChatRepository struct {
-	pool      *pgx.ConnPool
-	listeners [](chan Message)
-	mutex     sync.Mutex
-}
-
-func NewPgxChatRepository(pool *pgx.ConnPool) *PgxChatRepository {
-	return &PgxChatRepository{pool: pool}
-}
-
-func (repo *PgxChatRepository) CreateChannel(name string, userID int32) (channelID int32, err error) {
+func (repo *PgxRepository) CreateChannel(name string, userID int32) (channelID int32, err error) {
 	err = repo.pool.QueryRow(
 		"insert into channels(name) values($1) returning id",
 		name,
@@ -273,7 +257,7 @@ func (repo *PgxChatRepository) CreateChannel(name string, userID int32) (channel
 	return channelID, nil
 }
 
-func (repo *PgxChatRepository) GetChannels() (channels []Channel, err error) {
+func (repo *PgxRepository) GetChannels() (channels []Channel, err error) {
 	channels = make([]Channel, 0, 8)
 	rows, _ := repo.pool.Query("select id, name from channels order by name")
 
@@ -286,7 +270,7 @@ func (repo *PgxChatRepository) GetChannels() (channels []Channel, err error) {
 	return channels, rows.Err()
 }
 
-func (repo *PgxChatRepository) PostMessage(channelID int32, authorID int32, body string) (messageID int64, err error) {
+func (repo *PgxRepository) PostMessage(channelID int32, authorID int32, body string) (messageID int64, err error) {
 	message := Message{ChannelID: channelID, AuthorID: authorID, Body: body}
 	err = repo.pool.QueryRow(
 		"insert into messages(channel_id, user_id, body) values($1, $2, $3) returning id, creation_time",
@@ -310,7 +294,7 @@ func (repo *PgxChatRepository) PostMessage(channelID int32, authorID int32, body
 	return message.ID, nil
 }
 
-func (repo *PgxChatRepository) GetMessages(channelID int32, beforeMessageID int32, maxCount int32) (messages []Message, err error) {
+func (repo *PgxRepository) GetMessages(channelID int32, beforeMessageID int32, maxCount int32) (messages []Message, err error) {
 	messages = make([]Message, 0, 8)
 	rows, _ := repo.pool.Query(`
 		select id, user_id, body, creation_time
@@ -330,7 +314,7 @@ func (repo *PgxChatRepository) GetMessages(channelID int32, beforeMessageID int3
 	return messages, rows.Err()
 }
 
-func (repo *PgxChatRepository) GetInit(userID int32) (json []byte, err error) {
+func (repo *PgxRepository) GetInit(userID int32) (json []byte, err error) {
 	err = repo.pool.QueryRow(`
 		select row_to_json(t)
 		from (
@@ -360,7 +344,7 @@ func (repo *PgxChatRepository) GetInit(userID int32) (json []byte, err error) {
 	return json, err
 }
 
-func (repo *PgxChatRepository) Listen() chan Message {
+func (repo *PgxRepository) Listen() chan Message {
 	repo.mutex.Lock()
 	defer repo.mutex.Unlock()
 
@@ -369,7 +353,7 @@ func (repo *PgxChatRepository) Listen() chan Message {
 	return c
 }
 
-func (repo *PgxChatRepository) Unlisten(c chan Message) {
+func (repo *PgxRepository) Unlisten(c chan Message) {
 	repo.mutex.Lock()
 	defer repo.mutex.Unlock()
 
