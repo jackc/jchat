@@ -183,12 +183,18 @@ a.button {
         }
 
         .time {
-          padding-left: 1em;
           font-size: 0.75em;
           color: grey;
         }
 
         margin-bottom: 1em;
+      }
+
+      .daybreak {
+        color: grey;
+        margin-bottom: 1em;
+        font-style: italic;
+        font-size: 1.5em;
       }
 
       margin-bottom: 1em;

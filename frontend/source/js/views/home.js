@@ -178,7 +178,16 @@
   p.render = function() {
     this.el.innerHTML = ""
 
+    var lastMessageTime = new Date(0)
+
     this.channel.messages.forEach(function(m) {
+      var post_time = new Date(m.creation_time * 1000)
+      if(lastMessageTime.toDateString() != post_time.toDateString()) {
+        var v = new App.Views.Daybreak({date: post_time})
+        this.el.appendChild(v.render())
+        lastMessageTime = post_time
+      }
+
       var v = new App.Views.Message({model: m, users: this.users})
       this.el.appendChild(v.render())
     }, this)
@@ -191,6 +200,34 @@
 
   p.messageReceived = function() {
     this.render()
+  }
+
+  App.Views.Daybreak = function(options) {
+    view.View.call(this, "div")
+    this.el.className = "daybreak"
+    this.date = options.date
+  }
+
+  App.Views.Daybreak.prototype = Object.create(view.View.prototype)
+
+  var p = App.Views.Daybreak.prototype
+
+  p.render = function() {
+    var today = new Date()
+    var yesterday = new Date()
+    yesterday.setDate(today.getDate() - 1)
+
+    var daybreakString
+    if(today.toDateString() == this.date.toDateString()) {
+      daybreakString = "Today"
+    } else if(yesterday.toDateString() == this.date.toDateString()) {
+      daybreakString = "Yesterday"
+    } else {
+      daybreakString = this.date.toDaybreakString()
+    }
+
+    this.el.innerHTML = daybreakString
+    return this.el
   }
 
   App.Views.Message = function(options) {
