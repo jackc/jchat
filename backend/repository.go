@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -29,9 +30,41 @@ type UserRepository interface {
 	SetPasswordByToken(token, password string, completionIP string) error
 }
 
-type UserCreatedNotifier interface {
-	ListenUserCreated() chan User
-	UnlistenUserCreated(chan User)
+type UserSignal struct {
+	listeners [](chan User)
+	mutex     sync.Mutex
+}
+
+func (s *UserSignal) Add(c chan User) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.listeners = append(s.listeners, c)
+}
+
+func (s *UserSignal) Remove(c chan User) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for i, l := range s.listeners {
+		if c == l {
+			s.listeners[i] = s.listeners[len(s.listeners)-1]
+			s.listeners = s.listeners[:len(s.listeners)-1]
+			return
+		}
+	}
+}
+
+func (s *UserSignal) Dispatch(user User) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, l := range s.listeners {
+		l <- user
+	}
+}
+
+type UserCreatedSignaler interface {
+	UserCreatedSignal() *UserSignal
 }
 
 type User struct {
@@ -67,17 +100,49 @@ type ChatRepository interface {
 	GetInit(userID int32) (json []byte, err error)
 }
 
-type MessagePostedNotifier interface {
-	ListenMessagePosted() chan Message
-	UnlistenMessagePosted(c chan Message)
+type MessageSignal struct {
+	listeners [](chan Message)
+	mutex     sync.Mutex
+}
+
+func (s *MessageSignal) Add(c chan Message) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.listeners = append(s.listeners, c)
+}
+
+func (s *MessageSignal) Remove(c chan Message) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for i, l := range s.listeners {
+		if c == l {
+			s.listeners[i] = s.listeners[len(s.listeners)-1]
+			s.listeners = s.listeners[:len(s.listeners)-1]
+			return
+		}
+	}
+}
+
+func (s *MessageSignal) Dispatch(message Message) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, l := range s.listeners {
+		l <- message
+	}
+}
+
+type MessagePostedSignaler interface {
+	MessagePostedSignal() *MessageSignal
 }
 
 type Repository interface {
 	UserRepository
-	UserCreatedNotifier
+	UserCreatedSignaler
 	SessionRepository
 	ChatRepository
-	MessagePostedNotifier
+	MessagePostedSignaler
 }
 
 func DigestPassword(password string) (digest, salt []byte, err error) {

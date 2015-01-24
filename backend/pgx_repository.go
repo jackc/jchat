@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 func loadConnPoolConfig(conf ini.File) (pgx.ConnPoolConfig, error) {
@@ -82,10 +81,9 @@ func loadPreparedStatements(conf ini.File) (map[string]string, error) {
 }
 
 type PgxRepository struct {
-	pool                 *pgx.ConnPool
-	listeners            [](chan Message)
-	userCreatedListeners [](chan User)
-	mutex                sync.Mutex
+	pool                *pgx.ConnPool
+	userCreatedSignal   UserSignal
+	messagePostedSignal MessageSignal
 }
 
 func NewPgxRepository(config pgx.ConnPoolConfig, preparedStatements map[string]string) (*PgxRepository, error) {
@@ -108,6 +106,14 @@ func NewPgxRepository(config pgx.ConnPoolConfig, preparedStatements map[string]s
 	return &PgxRepository{pool: pool}, nil
 }
 
+func (repo *PgxRepository) MessagePostedSignal() *MessageSignal {
+	return &repo.messagePostedSignal
+}
+
+func (repo *PgxRepository) UserCreatedSignal() *UserSignal {
+	return &repo.userCreatedSignal
+}
+
 func (repo *PgxRepository) CreateUser(name, email, password string) (user User, err error) {
 	digest, salt, err := DigestPassword(password)
 	if err != nil {
@@ -125,14 +131,7 @@ func (repo *PgxRepository) CreateUser(name, email, password string) (user User, 
 		return user, err
 	}
 
-	go func() {
-		repo.mutex.Lock()
-		defer repo.mutex.Unlock()
-
-		for _, l := range repo.userCreatedListeners {
-			l <- user
-		}
-	}()
+	go repo.userCreatedSignal.Dispatch(user)
 
 	return user, nil
 }
@@ -316,14 +315,7 @@ func (repo *PgxRepository) PostMessage(channelID int32, authorID int32, body str
 		return 0, err
 	}
 
-	go func() {
-		repo.mutex.Lock()
-		defer repo.mutex.Unlock()
-
-		for _, l := range repo.listeners {
-			l <- message
-		}
-	}()
+	go repo.messagePostedSignal.Dispatch(message)
 
 	return message.ID, nil
 }
@@ -344,48 +336,4 @@ func (repo *PgxRepository) GetMessages(channelID int32, beforeMessageID int32, m
 func (repo *PgxRepository) GetInit(userID int32) (json []byte, err error) {
 	err = repo.pool.QueryRow("get_init").Scan(&json)
 	return json, err
-}
-
-func (repo *PgxRepository) ListenMessagePosted() chan Message {
-	repo.mutex.Lock()
-	defer repo.mutex.Unlock()
-
-	c := make(chan Message)
-	repo.listeners = append(repo.listeners, c)
-	return c
-}
-
-func (repo *PgxRepository) UnlistenMessagePosted(c chan Message) {
-	repo.mutex.Lock()
-	defer repo.mutex.Unlock()
-
-	for i, l := range repo.listeners {
-		if c == l {
-			repo.listeners[i] = repo.listeners[len(repo.listeners)-1]
-			repo.listeners = repo.listeners[:len(repo.listeners)-1]
-			return
-		}
-	}
-}
-
-func (repo *PgxRepository) ListenUserCreated() chan User {
-	repo.mutex.Lock()
-	defer repo.mutex.Unlock()
-
-	c := make(chan User)
-	repo.userCreatedListeners = append(repo.userCreatedListeners, c)
-	return c
-}
-
-func (repo *PgxRepository) UnlistenUserCreated(c chan User) {
-	repo.mutex.Lock()
-	defer repo.mutex.Unlock()
-
-	for i, l := range repo.userCreatedListeners {
-		if c == l {
-			repo.userCreatedListeners[i] = repo.userCreatedListeners[len(repo.userCreatedListeners)-1]
-			repo.userCreatedListeners = repo.userCreatedListeners[:len(repo.userCreatedListeners)-1]
-			return
-		}
-	}
 }

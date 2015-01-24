@@ -210,7 +210,7 @@ func testChatRepository(t *testing.T, repo ChatRepository, userID int32) {
 	}
 }
 
-func testMessagePostedNotifier(t *testing.T, notifier MessagePostedNotifier, repo ChatRepository, userID int32) {
+func testMessagePostedNotifier(t *testing.T, signaler MessagePostedSignaler, repo ChatRepository, userID int32) {
 	channelID, err := repo.CreateChannel("Test", userID)
 	if err != nil {
 		t.Fatalf("repo.CreateChannel returned error: %v", err)
@@ -219,7 +219,8 @@ func testMessagePostedNotifier(t *testing.T, notifier MessagePostedNotifier, rep
 	var message Message
 	finished := make(chan bool)
 
-	c := notifier.ListenMessagePosted()
+	c := make(chan Message)
+	signaler.MessagePostedSignal().Add(c)
 	go func() {
 		message = <-c
 		finished <- true
@@ -249,7 +250,7 @@ func testMessagePostedNotifier(t *testing.T, notifier MessagePostedNotifier, rep
 		t.Errorf("Expected message.Body to be %v, but it was %v", "Hello, world", message.Body)
 	}
 
-	notifier.UnlistenMessagePosted(c)
+	signaler.MessagePostedSignal().Remove(c)
 
 	// If the Unlisten didn't work this will hang
 	_, err = repo.PostMessage(channelID, userID, "Goodbye, world")
@@ -258,11 +259,12 @@ func testMessagePostedNotifier(t *testing.T, notifier MessagePostedNotifier, rep
 	}
 }
 
-func testUserCreatedNotifier(t *testing.T, notifier UserCreatedNotifier, repo UserRepository) {
+func testUserCreatedNotifier(t *testing.T, signaler UserCreatedSignaler, repo UserRepository) {
 	var notification User
 	finished := make(chan bool)
 
-	c := notifier.ListenUserCreated()
+	c := make(chan User)
+	signaler.UserCreatedSignal().Add(c)
 	go func() {
 		notification = <-c
 		finished <- true
@@ -283,7 +285,7 @@ func testUserCreatedNotifier(t *testing.T, notifier UserCreatedNotifier, repo Us
 		t.Errorf("Expected notification to be %v, but it was %v", user, notification)
 	}
 
-	notifier.UnlistenUserCreated(c)
+	signaler.UserCreatedSignal().Remove(c)
 
 	// If the Unlisten didn't work this will hang
 	_, err = repo.CreateUser("mark", "mark@example.com", "secret")
