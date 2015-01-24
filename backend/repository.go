@@ -61,8 +61,8 @@ type ChatRepository interface {
 	GetMessages(channelID int32, beforeMessageID int32, maxCount int32) (messages []Message, err error)
 	GetInit(userID int32) (json []byte, err error)
 
-	Listen() chan Message
-	Unlisten(c chan Message)
+	ListenPostMessage() chan Message
+	UnlistenPostMessage(c chan Message)
 }
 
 func DigestPassword(password string) (digest, salt []byte, err error) {

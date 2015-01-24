@@ -219,7 +219,7 @@ func testChatRepositoryListen(t *testing.T, repo ChatRepository, userID int32) {
 	var message Message
 	finished := make(chan bool)
 
-	c := repo.Listen()
+	c := repo.ListenPostMessage()
 	go func() {
 		message = <-c
 		finished <- true
@@ -249,7 +249,7 @@ func testChatRepositoryListen(t *testing.T, repo ChatRepository, userID int32) {
 		t.Errorf("Expected message.Body to be %v, but it was %v", "Hello, world", message.Body)
 	}
 
-	repo.Unlisten(c)
+	repo.UnlistenPostMessage(c)
 
 	// If the Unlisten didn't work this will hang
 	_, err = repo.PostMessage(channelID, userID, "Goodbye, world")

@@ -355,7 +355,7 @@ from (
 	return json, err
 }
 
-func (repo *PgxRepository) Listen() chan Message {
+func (repo *PgxRepository) ListenPostMessage() chan Message {
 	repo.mutex.Lock()
 	defer repo.mutex.Unlock()
 
@@ -364,7 +364,7 @@ func (repo *PgxRepository) Listen() chan Message {
 	return c
 }
 
-func (repo *PgxRepository) Unlisten(c chan Message) {
+func (repo *PgxRepository) UnlistenPostMessage(c chan Message) {
 	repo.mutex.Lock()
 	defer repo.mutex.Unlock()
 
