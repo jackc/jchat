@@ -88,3 +88,8 @@ func TestPgxRepositoryMessagePostedNotifier(t *testing.T) {
 
 	testMessagePostedNotifier(t, repo, repo, user.ID)
 }
+
+func TestPgxRepositoryUserCreatedNotifier(t *testing.T) {
+	repo := getPgxRepository(t)
+	testUserCreatedNotifier(t, repo, repo)
+}

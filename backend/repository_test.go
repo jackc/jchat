@@ -257,3 +257,37 @@ func testMessagePostedNotifier(t *testing.T, notifier MessagePostedNotifier, rep
 		t.Fatalf("repo.PostMessage returned error: %v", err)
 	}
 }
+
+func testUserCreatedNotifier(t *testing.T, notifier UserCreatedNotifier, repo UserRepository) {
+	var notification User
+	finished := make(chan bool)
+
+	c := notifier.ListenUserCreated()
+	go func() {
+		notification = <-c
+		finished <- true
+	}()
+
+	user, err := repo.CreateUser("john", "john@example.com", "secret")
+	if err != nil {
+		t.Fatalf("repo.CreateUser returned error: %v", err)
+	}
+
+	select {
+	case <-finished:
+	case <-time.After(time.Millisecond * 100):
+		t.Fatal("Never received message on channel c")
+	}
+
+	if notification != user {
+		t.Errorf("Expected notification to be %v, but it was %v", user, notification)
+	}
+
+	notifier.UnlistenUserCreated(c)
+
+	// If the Unlisten didn't work this will hang
+	_, err = repo.CreateUser("mark", "mark@example.com", "secret")
+	if err != nil {
+		t.Fatalf("repo.CreateUser returned error: %v", err)
+	}
+}

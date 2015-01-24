@@ -29,6 +29,11 @@ type UserRepository interface {
 	SetPasswordByToken(token, password string, completionIP string) error
 }
 
+type UserCreatedNotifier interface {
+	ListenUserCreated() chan User
+	UnlistenUserCreated(chan User)
+}
+
 type User struct {
 	ID    int32
 	Name  string
@@ -69,6 +74,7 @@ type MessagePostedNotifier interface {
 
 type Repository interface {
 	UserRepository
+	UserCreatedNotifier
 	SessionRepository
 	ChatRepository
 	MessagePostedNotifier

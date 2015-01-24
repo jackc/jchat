@@ -82,9 +82,10 @@ func loadPreparedStatements(conf ini.File) (map[string]string, error) {
 }
 
 type PgxRepository struct {
-	pool      *pgx.ConnPool
-	listeners [](chan Message)
-	mutex     sync.Mutex
+	pool                 *pgx.ConnPool
+	listeners            [](chan Message)
+	userCreatedListeners [](chan User)
+	mutex                sync.Mutex
 }
 
 func NewPgxRepository(config pgx.ConnPoolConfig, preparedStatements map[string]string) (*PgxRepository, error) {
@@ -123,6 +124,15 @@ func (repo *PgxRepository) CreateUser(name, email, password string) (user User, 
 	if err != nil {
 		return user, err
 	}
+
+	go func() {
+		repo.mutex.Lock()
+		defer repo.mutex.Unlock()
+
+		for _, l := range repo.userCreatedListeners {
+			l <- user
+		}
+	}()
 
 	return user, nil
 }
@@ -353,6 +363,28 @@ func (repo *PgxRepository) UnlistenMessagePosted(c chan Message) {
 		if c == l {
 			repo.listeners[i] = repo.listeners[len(repo.listeners)-1]
 			repo.listeners = repo.listeners[:len(repo.listeners)-1]
+			return
+		}
+	}
+}
+
+func (repo *PgxRepository) ListenUserCreated() chan User {
+	repo.mutex.Lock()
+	defer repo.mutex.Unlock()
+
+	c := make(chan User)
+	repo.userCreatedListeners = append(repo.userCreatedListeners, c)
+	return c
+}
+
+func (repo *PgxRepository) UnlistenUserCreated(c chan User) {
+	repo.mutex.Lock()
+	defer repo.mutex.Unlock()
+
+	for i, l := range repo.userCreatedListeners {
+		if c == l {
+			repo.userCreatedListeners[i] = repo.userCreatedListeners[len(repo.userCreatedListeners)-1]
+			repo.userCreatedListeners = repo.userCreatedListeners[:len(repo.userCreatedListeners)-1]
 			return
 		}
 	}
