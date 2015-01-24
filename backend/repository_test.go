@@ -210,7 +210,7 @@ func testChatRepository(t *testing.T, repo ChatRepository, userID int32) {
 	}
 }
 
-func testChatRepositoryListen(t *testing.T, repo ChatRepository, userID int32) {
+func testMessagePostedNotifier(t *testing.T, notifier MessagePostedNotifier, repo ChatRepository, userID int32) {
 	channelID, err := repo.CreateChannel("Test", userID)
 	if err != nil {
 		t.Fatalf("repo.CreateChannel returned error: %v", err)
@@ -219,7 +219,7 @@ func testChatRepositoryListen(t *testing.T, repo ChatRepository, userID int32) {
 	var message Message
 	finished := make(chan bool)
 
-	c := repo.ListenPostMessage()
+	c := notifier.ListenMessagePosted()
 	go func() {
 		message = <-c
 		finished <- true
@@ -249,7 +249,7 @@ func testChatRepositoryListen(t *testing.T, repo ChatRepository, userID int32) {
 		t.Errorf("Expected message.Body to be %v, but it was %v", "Hello, world", message.Body)
 	}
 
-	repo.UnlistenPostMessage(c)
+	notifier.UnlistenMessagePosted(c)
 
 	// If the Unlisten didn't work this will hang
 	_, err = repo.PostMessage(channelID, userID, "Goodbye, world")

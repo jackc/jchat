@@ -336,7 +336,7 @@ func (repo *PgxRepository) GetInit(userID int32) (json []byte, err error) {
 	return json, err
 }
 
-func (repo *PgxRepository) ListenPostMessage() chan Message {
+func (repo *PgxRepository) ListenMessagePosted() chan Message {
 	repo.mutex.Lock()
 	defer repo.mutex.Unlock()
 
@@ -345,7 +345,7 @@ func (repo *PgxRepository) ListenPostMessage() chan Message {
 	return c
 }
 
-func (repo *PgxRepository) UnlistenPostMessage(c chan Message) {
+func (repo *PgxRepository) UnlistenMessagePosted(c chan Message) {
 	repo.mutex.Lock()
 	defer repo.mutex.Unlock()
 

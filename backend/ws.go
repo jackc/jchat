@@ -45,8 +45,8 @@ const JSONRPCMethodNotFound = -32601
 const JSONRPCInvalidParams = -32602
 
 func (conn *ClientConn) Dispatch() {
-	chatChan := conn.repo.ListenPostMessage()
-	defer conn.repo.UnlistenPostMessage(chatChan)
+	chatChan := conn.repo.ListenMessagePosted()
+	defer conn.repo.UnlistenMessagePosted(chatChan)
 
 	reqChan := make(chan Request)
 	errChan := make(chan error)

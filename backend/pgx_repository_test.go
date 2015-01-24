@@ -79,12 +79,12 @@ func TestPgxRepositoryChat(t *testing.T) {
 	testChatRepository(t, repo, user.ID)
 }
 
-func TestPgxRepositoryListen(t *testing.T) {
+func TestPgxRepositoryMessagePostedNotifier(t *testing.T) {
 	repo := getPgxRepository(t)
 	user, err := repo.CreateUser("test", "test@example.com", "secret")
 	if err != nil {
 		t.Fatalf("repo.Create unexpectedly failed: %v", err)
 	}
 
-	testChatRepositoryListen(t, repo, user.ID)
+	testMessagePostedNotifier(t, repo, repo, user.ID)
 }
