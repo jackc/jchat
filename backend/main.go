@@ -177,13 +177,23 @@ func Serve(c *cli.Context) {
 		os.Exit(1)
 	}
 
-	pool, err := newConnPool(conf)
+	connPoolConfig, err := loadConnPoolConfig(conf)
 	if err != nil {
-		fmt.Println("Unable to create pgx connection pool: %v", err)
+		fmt.Println("Unable to load database configuration: %v", err)
 		os.Exit(1)
 	}
 
-	repo := NewPgxRepository(pool)
+	preparedStatements, err := loadPreparedStatements(conf)
+	if err != nil {
+		fmt.Println("Unable to load database SQL: %v", err)
+		os.Exit(1)
+	}
+
+	repo, err := NewPgxRepository(connPoolConfig, preparedStatements)
+	if err != nil {
+		fmt.Println("Unable to create PgxRepository: %v", err)
+		os.Exit(1)
+	}
 
 	mailer, err := newMailer(conf, logger)
 	if err != nil {
@@ -204,12 +214,10 @@ func Serve(c *cli.Context) {
 		defer ws.Close()
 
 		conn := &ClientConn{
-			ws:          ws,
-			userRepo:    repo,
-			sessionRepo: repo,
-			chatRepo:    repo,
-			logger:      logger,
-			mailer:      mailer,
+			ws:     ws,
+			repo:   repo,
+			logger: logger,
+			mailer: mailer,
 		}
 
 		conn.Dispatch()

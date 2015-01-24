@@ -6,26 +6,30 @@ import (
 	"testing"
 )
 
-var sharedPgxConnPool *pgx.ConnPool
+func getPgxRepository(t testing.TB) *PgxRepository {
+	configPath := "../jchat.test.conf"
+	conf, err := ini.LoadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-func getPgxConnPool(t testing.TB) *pgx.ConnPool {
-	if sharedPgxConnPool == nil {
-		configPath := "../jchat.test.conf"
-		conf, err := ini.LoadFile(configPath)
-		if err != nil {
-			t.Fatal(err)
-		}
+	connPoolConfig, err := loadConnPoolConfig(conf)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		pool, err := newConnPool(conf)
-		if err != nil {
-			t.Fatal(err)
-		}
+	preparedStatements, err := loadPreparedStatements(conf)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		sharedPgxConnPool = pool
+	repo, err := NewPgxRepository(connPoolConfig, preparedStatements)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	mustExec := func(t testing.TB, sql string, arguments ...interface{}) (commandTag pgx.CommandTag) {
-		commandTag, err := sharedPgxConnPool.Exec(sql, arguments...)
+		commandTag, err := repo.pool.Exec(sql, arguments...)
 		if err != nil {
 			t.Fatalf("Exec unexpectedly failed with %v: %v", sql, err)
 		}
@@ -37,38 +41,26 @@ func getPgxConnPool(t testing.TB) *pgx.ConnPool {
 	mustExec(t, "delete from channels")
 	mustExec(t, "delete from users")
 
-	return sharedPgxConnPool
-}
-
-func mustExec(t testing.TB, sql string, arguments ...interface{}) (commandTag pgx.CommandTag) {
-	pool := getPgxConnPool(t)
-
-	commandTag, err := pool.Exec(sql, arguments...)
-	if err != nil {
-		t.Fatalf("Exec unexpectedly failed with %v: %v", sql, err)
-	}
-
-	return commandTag
+	return repo
 }
 
 func TestPgxRepositoryCreateAndLoginCycle(t *testing.T) {
-	repo := NewPgxRepository(getPgxConnPool(t))
+	repo := getPgxRepository(t)
 	testUserRepositoryCreateAndLoginCycle(t, repo)
 }
 
 func TestPgxRepositoryGetUser(t *testing.T) {
-	repo := NewPgxRepository(getPgxConnPool(t))
+	repo := getPgxRepository(t)
 	testUserRepositoryGetUser(t, repo)
 }
 
 func TestPgxRepositorySetPassword(t *testing.T) {
-	repo := NewPgxRepository(getPgxConnPool(t))
+	repo := getPgxRepository(t)
 	testUserRepositorySetPassword(t, repo)
 }
 
 func TestPgxRepositorySession(t *testing.T) {
-	connPool := getPgxConnPool(t)
-	repo := NewPgxRepository(connPool)
+	repo := getPgxRepository(t)
 	user, err := repo.CreateUser("test", "test@example.com", "secret")
 	if err != nil {
 		t.Fatalf("repo.Create unexpectedly failed: %v", err)
@@ -78,8 +70,7 @@ func TestPgxRepositorySession(t *testing.T) {
 }
 
 func TestPgxRepositoryChat(t *testing.T) {
-	connPool := getPgxConnPool(t)
-	repo := NewPgxRepository(connPool)
+	repo := getPgxRepository(t)
 	user, err := repo.CreateUser("test", "test@example.com", "secret")
 	if err != nil {
 		t.Fatalf("repo.Create unexpectedly failed: %v", err)
@@ -89,8 +80,7 @@ func TestPgxRepositoryChat(t *testing.T) {
 }
 
 func TestPgxRepositoryListen(t *testing.T) {
-	connPool := getPgxConnPool(t)
-	repo := NewPgxRepository(connPool)
+	repo := getPgxRepository(t)
 	user, err := repo.CreateUser("test", "test@example.com", "secret")
 	if err != nil {
 		t.Fatalf("repo.Create unexpectedly failed: %v", err)

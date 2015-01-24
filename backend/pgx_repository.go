@@ -4,48 +4,81 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/jackc/pgx"
 	"github.com/vaughan0/go-ini"
 	"io"
+	"io/ioutil"
+	"path"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 )
 
-func newConnPool(conf ini.File) (*pgx.ConnPool, error) {
+func loadConnPoolConfig(conf ini.File) (pgx.ConnPoolConfig, error) {
 	connConfig := pgx.ConnConfig{}
 
 	connConfig.Host, _ = conf.Get("database", "host")
 	if connConfig.Host == "" {
-		return nil, errors.New("Config must contain database.host but it does not")
+		return pgx.ConnPoolConfig{}, errors.New("Config must contain database.host but it does not")
 	}
 
 	if p, ok := conf.Get("database", "port"); ok {
 		n, err := strconv.ParseUint(p, 10, 16)
 		connConfig.Port = uint16(n)
 		if err != nil {
-			return nil, err
+			return pgx.ConnPoolConfig{}, err
 		}
 	}
 
 	var ok bool
 
 	if connConfig.Database, ok = conf.Get("database", "database"); !ok {
-		return nil, errors.New("Config must contain database.database but it does not")
+		return pgx.ConnPoolConfig{}, errors.New("Config must contain database.database but it does not")
 	}
 	connConfig.User, _ = conf.Get("database", "user")
 	connConfig.Password, _ = conf.Get("database", "password")
 
-	connPoolConfig := pgx.ConnPoolConfig{
+	return pgx.ConnPoolConfig{
 		ConnConfig:     connConfig,
 		MaxConnections: 10,
+	}, nil
+}
+
+func loadPreparedStatements(conf ini.File) (map[string]string, error) {
+	sqlPath, _ := conf.Get("database", "sql_path")
+	if sqlPath == "" {
+		return nil, errors.New("Config must contain database.sql_path but it does not")
 	}
 
-	pool, err := pgx.NewConnPool(connPoolConfig)
+	sqlPath = strings.TrimRight(sqlPath, string(filepath.Separator))
+
+	filePaths, err := filepath.Glob(filepath.Join(sqlPath, "*.sql"))
 	if err != nil {
 		return nil, err
 	}
 
-	return pool, nil
+	if len(filePaths) == 0 {
+		absSqlPath, err := filepath.Abs(sqlPath)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("Did not find any prepared statements at: %v (%v)", sqlPath, absSqlPath)
+	}
+
+	preparedStatements := make(map[string]string, len(filePaths))
+
+	for _, p := range filePaths {
+		body, err := ioutil.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+
+		preparedStatements[strings.Replace(path.Base(p), ".sql", "", 1)] = string(body)
+	}
+
+	return preparedStatements, nil
 }
 
 type PgxRepository struct {
@@ -54,8 +87,24 @@ type PgxRepository struct {
 	mutex     sync.Mutex
 }
 
-func NewPgxRepository(pool *pgx.ConnPool) *PgxRepository {
-	return &PgxRepository{pool: pool}
+func NewPgxRepository(config pgx.ConnPoolConfig, preparedStatements map[string]string) (*PgxRepository, error) {
+	config.AfterConnect = func(conn *pgx.Conn) error {
+		for name, sql := range preparedStatements {
+			_, err := conn.Prepare(name, sql)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	pool, err := pgx.NewConnPool(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PgxRepository{pool: pool}, nil
 }
 
 func (repo *PgxRepository) CreateUser(name, email, password string) (user User, err error) {
@@ -65,7 +114,7 @@ func (repo *PgxRepository) CreateUser(name, email, password string) (user User, 
 	}
 
 	err = repo.pool.QueryRow(
-		"insert into users(name, email, password_digest, password_salt) values($1, $2, $3, $4) returning id, name, email",
+		"create_user",
 		name,
 		email,
 		digest,
@@ -79,7 +128,7 @@ func (repo *PgxRepository) CreateUser(name, email, password string) (user User, 
 }
 
 func (repo *PgxRepository) GetUser(userID int32) (user User, err error) {
-	err = repo.pool.QueryRow("select id, name, email from users where id=$1",
+	err = repo.pool.QueryRow("get_user",
 		userID,
 	).Scan(&user.ID, &user.Name, &user.Email)
 	if err == pgx.ErrNoRows {
@@ -95,7 +144,7 @@ func (repo *PgxRepository) GetUser(userID int32) (user User, err error) {
 func (repo *PgxRepository) Login(email, password string) (user User, err error) {
 	var digest, salt []byte
 
-	err = repo.pool.QueryRow("select id, name, email, password_digest, password_salt from users where email=$1",
+	err = repo.pool.QueryRow("login",
 		email,
 	).Scan(&user.ID, &user.Name, &user.Email, &digest, &salt)
 	if err == pgx.ErrNoRows {
@@ -118,7 +167,7 @@ func (repo *PgxRepository) SetPassword(userID int32, password string) (err error
 		return err
 	}
 
-	commandTag, err := repo.pool.Exec("update users set password_digest=$1, password_salt=$2 where id=$3", digest, salt, userID)
+	commandTag, err := repo.pool.Exec("set_password", digest, salt, userID)
 	if err != nil {
 		return err
 	}
@@ -131,9 +180,7 @@ func (repo *PgxRepository) SetPassword(userID int32, password string) (err error
 
 func (repo *PgxRepository) CreatePasswordResetToken(email string, requestIP string) (token string, err error) {
 	var userID int32
-	err = repo.pool.QueryRow("select id from users where email=$1",
-		email,
-	).Scan(&userID)
+	err = repo.pool.QueryRow("get_user_by_email", email).Scan(&userID)
 	if err == pgx.ErrNoRows {
 		return "", ErrNotFound
 	}
@@ -149,8 +196,7 @@ func (repo *PgxRepository) CreatePasswordResetToken(email string, requestIP stri
 
 	token = hex.EncodeToString(tokenBytes)
 
-	_, err = repo.pool.Exec("insert into password_resets(token, user_id, request_ip, request_time) values($1, $2, $3, current_timestamp)",
-		token, userID, requestIP)
+	_, err = repo.pool.Exec("create_password_reset", token, userID, requestIP)
 	if err != nil {
 		return "", err
 	}
@@ -164,21 +210,7 @@ func (repo *PgxRepository) SetPasswordByToken(token, password string, completion
 		return err
 	}
 
-	commandTag, err := repo.pool.Exec(`
-		with t as (
-			update password_resets
-			set completion_ip=$1,
-			  completion_time=current_timestamp
-			where token=$2
-			  and completion_time is null
-			returning user_id
-		)
-		update users
-		set password_digest=$3,
-		  password_salt=$4
-		from t
-		where users.id=t.user_id
-		`,
+	commandTag, err := repo.pool.Exec("set_password_from_password_reset",
 		completionIP,
 		token,
 		digest,
@@ -201,7 +233,7 @@ func (repo *PgxRepository) CreateSession(userID int32) (sessionID string, err er
 		return "", err
 	}
 
-	_, err = repo.pool.Exec(`insert into sessions(id, user_id) values($1, $2)`, sessionBytes, userID)
+	_, err = repo.pool.Exec("create_session", sessionBytes, userID)
 	if err != nil {
 		return "", err
 	}
@@ -217,7 +249,7 @@ func (repo *PgxRepository) DeleteSession(sessionID string) (err error) {
 		return err
 	}
 
-	commandTag, err := repo.pool.Exec(`delete from sessions where id=$1`, sessionBytes)
+	commandTag, err := repo.pool.Exec("delete_session", sessionBytes)
 	if err != nil {
 		return err
 	}
@@ -234,7 +266,7 @@ func (repo *PgxRepository) GetUserIDBySessionID(sessionID string) (userID int32,
 		return 0, err
 	}
 
-	err = repo.pool.QueryRow("select user_id from sessions where id=$1", sessionBytes).Scan(&userID)
+	err = repo.pool.QueryRow("get_user_id_from_session", sessionBytes).Scan(&userID)
 	if err == pgx.ErrNoRows {
 		return 0, ErrNotFound
 	}
@@ -246,10 +278,7 @@ func (repo *PgxRepository) GetUserIDBySessionID(sessionID string) (userID int32,
 }
 
 func (repo *PgxRepository) CreateChannel(name string, userID int32) (channelID int32, err error) {
-	err = repo.pool.QueryRow(
-		"insert into channels(name) values($1) returning id",
-		name,
-	).Scan(&channelID)
+	err = repo.pool.QueryRow("create_channel", name).Scan(&channelID)
 	if err != nil {
 		return 0, err
 	}
@@ -259,7 +288,7 @@ func (repo *PgxRepository) CreateChannel(name string, userID int32) (channelID i
 
 func (repo *PgxRepository) GetChannels() (channels []Channel, err error) {
 	channels = make([]Channel, 0, 8)
-	rows, _ := repo.pool.Query("select id, name from channels order by name")
+	rows, _ := repo.pool.Query("get_channels")
 
 	for rows.Next() {
 		var c Channel
@@ -272,12 +301,7 @@ func (repo *PgxRepository) GetChannels() (channels []Channel, err error) {
 
 func (repo *PgxRepository) PostMessage(channelID int32, authorID int32, body string) (messageID int64, err error) {
 	message := Message{ChannelID: channelID, AuthorID: authorID, Body: body}
-	err = repo.pool.QueryRow(
-		"insert into messages(channel_id, user_id, body) values($1, $2, $3) returning id, creation_time",
-		channelID,
-		authorID,
-		body,
-	).Scan(&message.ID, &message.Time)
+	err = repo.pool.QueryRow("post_message", channelID, authorID, body).Scan(&message.ID, &message.Time)
 	if err != nil {
 		return 0, err
 	}
@@ -296,14 +320,7 @@ func (repo *PgxRepository) PostMessage(channelID int32, authorID int32, body str
 
 func (repo *PgxRepository) GetMessages(channelID int32, beforeMessageID int32, maxCount int32) (messages []Message, err error) {
 	messages = make([]Message, 0, 8)
-	rows, _ := repo.pool.Query(`
-		select id, user_id, body, creation_time
-		from messages
-		where channel_id=$1
-		order by id desc
-	`,
-		channelID,
-	)
+	rows, _ := repo.pool.Query("get_messages", channelID)
 
 	for rows.Next() {
 		var m Message
@@ -315,43 +332,7 @@ func (repo *PgxRepository) GetMessages(channelID int32, beforeMessageID int32, m
 }
 
 func (repo *PgxRepository) GetInit(userID int32) (json []byte, err error) {
-	err = repo.pool.QueryRow(`
-select row_to_json(t)
-from (
-  select
-    (
-      select coalesce(json_agg(row_to_json(t)), '[]'::json)
-      from (
-        select
-          id,
-          name,
-          (
-            select coalesce(json_agg(row_to_json(t)), '[]'::json)
-            from (
-              select
-                id,
-                user_id as author_id,
-                body,
-                extract(epoch from creation_time::timestamptz(0)) as creation_time
-              from messages
-              where messages.channel_id=channels.id
-              order by creation_time asc
-            ) t
-          ) messages
-        from channels
-      ) t
-    ) as channels,
-    (
-      select coalesce(json_agg(row_to_json(t)), '[]'::json)
-      from (
-        select id, name
-        from users
-        order by users.name
-      ) t
-    ) as users
-) t
-	`).Scan(&json)
-
+	err = repo.pool.QueryRow("get_init").Scan(&json)
 	return json, err
 }
 

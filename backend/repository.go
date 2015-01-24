@@ -65,6 +65,12 @@ type ChatRepository interface {
 	UnlistenPostMessage(c chan Message)
 }
 
+type Repository interface {
+	UserRepository
+	SessionRepository
+	ChatRepository
+}
+
 func DigestPassword(password string) (digest, salt []byte, err error) {
 	salt = make([]byte, 8)
 	_, err = rand.Read(salt)

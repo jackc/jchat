@@ -9,13 +9,11 @@ import (
 )
 
 type ClientConn struct {
-	ws          *websocket.Conn
-	user        User
-	userRepo    UserRepository
-	sessionRepo SessionRepository
-	chatRepo    ChatRepository
-	logger      log.Logger
-	mailer      Mailer
+	ws     *websocket.Conn
+	user   User
+	repo   Repository
+	logger log.Logger
+	mailer Mailer
 }
 
 type Request struct {
@@ -47,8 +45,8 @@ const JSONRPCMethodNotFound = -32601
 const JSONRPCInvalidParams = -32602
 
 func (conn *ClientConn) Dispatch() {
-	chatChan := conn.chatRepo.ListenPostMessage()
-	defer conn.chatRepo.UnlistenPostMessage(chatChan)
+	chatChan := conn.repo.ListenPostMessage()
+	defer conn.repo.UnlistenPostMessage(chatChan)
 
 	reqChan := make(chan Request)
 	errChan := make(chan error)
@@ -163,7 +161,7 @@ func (conn *ClientConn) Register(params json.RawMessage) (response Response) {
 		return response
 	}
 
-	conn.user, err = conn.userRepo.CreateUser(registration.Name, registration.Email, registration.Password)
+	conn.user, err = conn.repo.CreateUser(registration.Name, registration.Email, registration.Password)
 	if err != nil {
 		if err, ok := err.(DuplicationError); ok {
 			response.Error = &Error{Code: 2, Message: "Already taken", Data: err.Field}
@@ -174,7 +172,7 @@ func (conn *ClientConn) Register(params json.RawMessage) (response Response) {
 		}
 	}
 
-	sessionID, err := conn.sessionRepo.CreateSession(conn.user.ID)
+	sessionID, err := conn.repo.CreateSession(conn.user.ID)
 	if err != nil {
 		response.Error = &Error{Code: 5, Message: "Unable to create session"}
 		return response
@@ -207,13 +205,13 @@ func (conn *ClientConn) Login(body json.RawMessage) (response Response) {
 		return response
 	}
 
-	conn.user, err = conn.userRepo.Login(credentials.Email, credentials.Password)
+	conn.user, err = conn.repo.Login(credentials.Email, credentials.Password)
 	if err != nil {
 		response.Error = &Error{Code: 5, Message: "Bad email or password"}
 		return response
 	}
 
-	sessionID, err := conn.sessionRepo.CreateSession(conn.user.ID)
+	sessionID, err := conn.repo.CreateSession(conn.user.ID)
 	if err != nil {
 		response.Error = &Error{Code: 5, Message: "Unable to create session"}
 		return response
@@ -240,13 +238,13 @@ func (conn *ClientConn) ResumeSession(body json.RawMessage) (response Response) 
 		return response
 	}
 
-	userID, err := conn.sessionRepo.GetUserIDBySessionID(credentials.SessionID)
+	userID, err := conn.repo.GetUserIDBySessionID(credentials.SessionID)
 	if err != nil {
 		response.Error = &Error{Code: 14, Message: "Cannot resume session"}
 		return response
 	}
 
-	conn.user, err = conn.userRepo.GetUser(userID)
+	conn.user, err = conn.repo.GetUser(userID)
 
 	response.Result = LoginSuccess{UserID: conn.user.ID, SessionID: credentials.SessionID}
 
@@ -276,7 +274,7 @@ func (conn *ClientConn) RequestPasswordReset(body json.RawMessage) (response Res
 		return response
 	}
 
-	token, err := conn.userRepo.CreatePasswordResetToken(reset.Email, remoteIP)
+	token, err := conn.repo.CreatePasswordResetToken(reset.Email, remoteIP)
 	if err == ErrNotFound {
 		response.Result = true // don't reveal whether email address is taken or not
 		return response
@@ -321,7 +319,7 @@ func (conn *ClientConn) ResetPassword(body json.RawMessage) (response Response) 
 		return response
 	}
 
-	err = conn.userRepo.SetPasswordByToken(resetPassword.Token, resetPassword.Password, remoteIP)
+	err = conn.repo.SetPasswordByToken(resetPassword.Token, resetPassword.Password, remoteIP)
 	if err != nil {
 		response.Error = &Error{Code: 11, Message: "Failed to update password"}
 		return response
@@ -332,7 +330,7 @@ func (conn *ClientConn) ResetPassword(body json.RawMessage) (response Response) 
 }
 
 func (conn *ClientConn) InitChat(body json.RawMessage) (response Response) {
-	initJSON, err := conn.chatRepo.GetInit(conn.user.ID)
+	initJSON, err := conn.repo.GetInit(conn.user.ID)
 	if err != nil {
 		response.Error = &Error{Code: 12, Message: "Unable to initialize chat"}
 		return response
@@ -355,7 +353,7 @@ func (conn *ClientConn) PostMessage(body json.RawMessage) (response Response) {
 		return response
 	}
 
-	_, err = conn.chatRepo.PostMessage(message.ChannelID, conn.user.ID, message.Text)
+	_, err = conn.repo.PostMessage(message.ChannelID, conn.user.ID, message.Text)
 	if err != nil {
 		response.Error = &Error{Code: 13, Message: "Unable to post message"}
 		return response
