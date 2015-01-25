@@ -1,8 +1,8 @@
 (function() {
   "use strict"
 
-  App.Models.Channel = function(conn, attrs) {
-    this.conn = conn
+  App.Models.Channel = function(chat, attrs) {
+    this.chat = chat
 
     this.id = attrs.id
     this.name = attrs.name
@@ -12,8 +12,6 @@
 
     this.sendMessage = this.sendMessage.bind(this)
     this.onMessagePosted = this.onMessagePosted.bind(this)
-
-    this.conn.messagePosted.add(this.onMessagePosted)
   }
 
   App.Models.Channel.prototype = {
@@ -22,14 +20,12 @@
     },
 
     sendMessage: function(text) {
-      this.conn.sendMessage({channel_id: this.id, text: text})
+      this.chat.postMessage({channel_id: this.id, text: text})
     },
 
     onMessagePosted: function(message) {
-      if(message.channel_id == this.id) {
-        this.messages.push(message)
-        this.messageReceived.dispatch()
-      }
+      this.messages.push(message)
+      this.messageReceived.dispatch()
     }
   }
 
@@ -39,8 +35,8 @@
     this.users = attrs.users
 
     this.channels = attrs.channels.map(function(c) {
-      return new App.Models.Channel(this.conn, c)
-    }.bind(this))
+      return new App.Models.Channel(this, c)
+    }, this)
 
     this.selectedChannel = this.channels[0]
 
@@ -48,6 +44,9 @@
 
     this.onUserCreated = this.onUserCreated.bind(this)
     this.conn.userCreated.add(this.onUserCreated)
+
+    this.onMessagePosted = this.onMessagePosted.bind(this)
+    this.conn.messagePosted.add(this.onMessagePosted)
   }
 
   App.Models.Chat.prototype = {
@@ -60,8 +59,22 @@
       this.channelChanged.dispatch(channel)
     },
 
+    postMessage: function(message) {
+      this.conn.sendMessage(message)
+    },
+
     onUserCreated: function(user) {
       this.users.push(user)
+    },
+
+    onMessagePosted: function(message) {
+      for(var i = 0; i < this.channels.length; i++) {
+        var c = this.channels[i]
+        if(message.channel_id == c.id) {
+          c.onMessagePosted(message)
+          return
+        }
+      }
     }
   }
 })();
