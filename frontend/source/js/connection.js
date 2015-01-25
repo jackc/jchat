@@ -129,7 +129,6 @@
     logout: function() {
       this.ws.close()
       window.conn = new Connection;
-      window.router.navigate('login')
     },
 
     register: function(registration, callbacks) {
