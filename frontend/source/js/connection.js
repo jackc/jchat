@@ -8,6 +8,7 @@
     this.firstRequestStarted = new signals.Signal()
     this.lastRequestFinished = new signals.Signal()
     this.messagePosted = new signals.Signal()
+    this.userCreated = new signals.Signal()
 
     this.ws = new WebSocket(this.hostRelativeWsURI("/ws"))
     this.ws.onmessage = this.wsOnMessage.bind(this)
@@ -82,6 +83,9 @@
       switch(notification.method) {
         case "message_posted":
           this.messagePosted.dispatch(notification.params)
+          break
+        case "user_created":
+          this.userCreated.dispatch(notification.params)
           break
         default:
           console.log("Unknown notification:", notification)

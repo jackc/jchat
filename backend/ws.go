@@ -49,6 +49,10 @@ func (conn *ClientConn) Dispatch() {
 	conn.repo.MessagePostedSignal().Add(chatChan)
 	defer conn.repo.MessagePostedSignal().Remove(chatChan)
 
+	userCreatedChan := make(chan User)
+	conn.repo.UserCreatedSignal().Add(userCreatedChan)
+	defer conn.repo.UserCreatedSignal().Remove(userCreatedChan)
+
 	reqChan := make(chan Request)
 	errChan := make(chan error)
 
@@ -120,6 +124,28 @@ func (conn *ClientConn) Dispatch() {
 			}
 
 			notification.Method = "message_posted"
+			notification.Params = msg
+			err := websocket.JSON.Send(conn.ws, notification)
+			if err != nil {
+				fmt.Println(err)
+				// Failed to send
+				return
+			}
+		case user := <-userCreatedChan:
+			var msg struct {
+				ID   int32  `json:"id"`
+				Name string `json:"name"`
+			}
+
+			msg.ID = user.ID
+			msg.Name = user.Name
+
+			var notification struct {
+				Method string      `json:"method"`
+				Params interface{} `json:"params"`
+			}
+
+			notification.Method = "user_created"
 			notification.Params = msg
 			err := websocket.JSON.Send(conn.ws, notification)
 			if err != nil {

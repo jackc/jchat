@@ -45,6 +45,9 @@
     this.selectedChannel = this.channels[0]
 
     this.channelChanged = new signals.Signal()
+
+    this.onUserCreated = this.onUserCreated.bind(this)
+    this.conn.userCreated.add(this.onUserCreated)
   }
 
   App.Models.Chat.prototype = {
@@ -55,6 +58,10 @@
 
       this.selectedChannel = channel
       this.channelChanged.dispatch(channel)
+    },
+
+    onUserCreated: function(user) {
+      this.users.push(user)
     }
   }
 })();
