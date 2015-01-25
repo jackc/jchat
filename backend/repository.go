@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 )
 
@@ -30,43 +29,11 @@ type UserRepository interface {
 	SetPasswordByToken(token, password string, completionIP string) error
 }
 
-type UserSignal struct {
-	listeners [](chan User)
-	mutex     sync.Mutex
-}
-
-func (s *UserSignal) Add(c chan User) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.listeners = append(s.listeners, c)
-}
-
-func (s *UserSignal) Remove(c chan User) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	for i, l := range s.listeners {
-		if c == l {
-			s.listeners[i] = s.listeners[len(s.listeners)-1]
-			s.listeners = s.listeners[:len(s.listeners)-1]
-			return
-		}
-	}
-}
-
-func (s *UserSignal) Dispatch(user User) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	for _, l := range s.listeners {
-		l <- user
-	}
-}
-
 type UserCreatedSignaler interface {
 	UserCreatedSignal() *UserSignal
 }
 
+// +gen signal
 type User struct {
 	ID    int32
 	Name  string
@@ -78,6 +45,7 @@ type Channel struct {
 	Name string
 }
 
+// +gen signal
 type Message struct {
 	ID        int64
 	ChannelID int32
@@ -98,39 +66,6 @@ type ChatRepository interface {
 	PostMessage(channelID int32, authorID int32, body string) (messageID int64, err error)
 	GetMessages(channelID int32, beforeMessageID int32, maxCount int32) (messages []Message, err error)
 	GetInit(userID int32) (json []byte, err error)
-}
-
-type MessageSignal struct {
-	listeners [](chan Message)
-	mutex     sync.Mutex
-}
-
-func (s *MessageSignal) Add(c chan Message) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.listeners = append(s.listeners, c)
-}
-
-func (s *MessageSignal) Remove(c chan Message) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	for i, l := range s.listeners {
-		if c == l {
-			s.listeners[i] = s.listeners[len(s.listeners)-1]
-			s.listeners = s.listeners[:len(s.listeners)-1]
-			return
-		}
-	}
-}
-
-func (s *MessageSignal) Dispatch(message Message) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	for _, l := range s.listeners {
-		l <- message
-	}
 }
 
 type MessagePostedSignaler interface {
