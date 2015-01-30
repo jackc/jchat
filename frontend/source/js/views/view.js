@@ -51,9 +51,4 @@
       }
     }
   }
-
-  view.create = function(tagName) {
-    var v = new view.View(tagName)
-    return Object.create(v)
-  }
 })()
