@@ -1,5 +1,5 @@
 (function() {
-  "use strict";
+  "use strict"
 
   window.Connection = function() {
     this.opened = new signals.Signal();
@@ -10,16 +10,16 @@
     this.messagePosted = new signals.Signal()
     this.userCreated = new signals.Signal()
 
-    this.ws = new WebSocket(this.hostRelativeWsURI("/ws"))
-    this.ws.onmessage = this.wsOnMessage.bind(this)
-    this.ws.onclose = function() { console.log("socket closed"); }
-    this.ws.onerror = this.wsOnError.bind(this)
-    this.ws.onopen = this.wsOnOpen.bind(this)
+    this.wsOnMessage = this.wsOnMessage.bind(this)
+    this.wsOnClose = this.wsOnClose.bind(this)
+    this.wsOnError = this.wsOnError.bind(this)
+    this.wsOnOpen = this.wsOnOpen.bind(this)
 
-    this.pendingRequests = {}
-  };
+    this.connect()
+  }
 
   Connection.prototype = {
+    connectAttemptCount: 0,
     nextRequestID: 0,
 
     hostRelativeWsURI: function(path) {
@@ -38,6 +38,17 @@
       return wsURI
     },
 
+    connect: function() {
+      console.log("Attempting connection")
+      this.ws = new WebSocket(this.hostRelativeWsURI("/ws"))
+      this.ws.onmessage = this.wsOnMessage
+      this.ws.onclose = this.wsOnClose
+      this.ws.onerror = this.wsOnError
+      this.ws.onopen = this.wsOnOpen
+
+      this.pendingRequests = {}
+    },
+
     wsOnMessage: function(evt) {
       var data = JSON.parse(evt.data)
 
@@ -48,16 +59,22 @@
       }
     },
 
-    wsOnError: function() {
+    wsOnClose: function() {
+      console.log("close")
       this.lost.dispatch()
+
+      setTimeout(this.connect.bind(this), this.connectAttemptCount * 1000)
+      this.connectAttemptCount++
+    },
+
+    wsOnError: function(err) {
+      console.log("error", err)
     },
 
     wsOnOpen: function() {
-      var sessionID = localStorage.getItem("sessionID")
-      if(sessionID) {
-      } {
-        this.opened.dispatch()
-      }
+      console.log("open")
+      this.connectAttemptCount = 0
+      this.opened.dispatch()
     },
 
     onResponse: function(response) {
@@ -90,6 +107,11 @@
         default:
           console.log("Unknown notification:", notification)
       }
+    },
+
+    sendNotification: function(method, params) {
+      var msg = {method: method, params: params}
+      this.ws.send(JSON.stringify(msg))
     },
 
     sendRequest: function(method, params, callbacks) {
@@ -127,8 +149,10 @@
     },
 
     logout: function() {
-      this.ws.close()
-      window.conn = new Connection;
+      this.sendNotification("logout")
+      delete this.userID
+      delete this.sessionID
+      localStorage.removeItem("sessionID")
     },
 
     register: function(registration, callbacks) {
@@ -155,4 +179,4 @@
       this.sendRequest("post_message", message, callbacks)
     }
   }
-})();
+})()

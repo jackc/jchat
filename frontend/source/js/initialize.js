@@ -9,7 +9,7 @@
 
   document.addEventListener("DOMContentLoaded", function() {
     window.conn = new Connection
-    conn.opened.addOnce(function() {
+    conn.opened.add(function() {
       var sessionID = localStorage.getItem("sessionID")
       if(sessionID) {
         conn.resumeSession(sessionID, {
@@ -29,10 +29,6 @@
       } else {
         gotoLogin()
       }
-    })
-
-    conn.lost.addOnce(function() {
-      console.log("Lost websocket connection")
     })
 
     return new App.Views.WorkingNotice;

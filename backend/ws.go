@@ -44,6 +44,7 @@ const JSONRPCParseError = -32700
 const JSONRPCMethodNotFound = -32601
 const JSONRPCInvalidParams = -32602
 
+// TODO - separate handling of logged in / not logged in
 func (conn *ClientConn) Dispatch() {
 	chatChan := make(chan Message)
 	conn.repo.MessagePostedSignal().Add(chatChan)
@@ -80,6 +81,8 @@ func (conn *ClientConn) Dispatch() {
 				response = conn.Register(req.Params)
 			case "login":
 				response = conn.Login(req.Params)
+			case "logout":
+				conn.user = User{}
 			case "resume_session":
 				response = conn.ResumeSession(req.Params)
 			case "request_password_reset":
@@ -95,13 +98,15 @@ func (conn *ClientConn) Dispatch() {
 				response.Error = &Error{Code: JSONRPCMethodNotFound, Message: "Method not found"}
 			}
 
-			response.ID = *req.ID
+			if req.ID != nil {
+				response.ID = *req.ID
 
-			err := websocket.JSON.Send(conn.ws, response)
-			if err != nil {
-				fmt.Println(err)
-				// Failed to send
-				return
+				err := websocket.JSON.Send(conn.ws, response)
+				if err != nil {
+					fmt.Println(err)
+					// Failed to send
+					return
+				}
 			}
 		case message := <-chatChan:
 			var msg struct {
