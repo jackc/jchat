@@ -66,3 +66,45 @@ func TestClientConnInvalidJSON(t *testing.T) {
 		t.Fatalf("Expected Error.Code to be %d, but it was %d", JSONRPCParseError, response.Error.Code)
 	}
 }
+
+func TestClientConnLogin(t *testing.T) {
+	repo := getPgxRepository(t)
+	server := getTestWsServer(t, repo)
+	defer server.Close()
+	ws := connectWebSocketClient(t, server)
+	defer ws.Close()
+
+	request := struct {
+		Method string             `json:"method"`
+		Params RequestCredentials `json:"params"`
+		ID     int32              `json:"id"`
+	}{
+		Method: "login",
+		Params: RequestCredentials{"joe@example.com", "password"},
+		ID:     1,
+	}
+
+	err := websocket.JSON.Send(ws, &request)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var response struct {
+		Result interface{} `json:"result,omitempty"`
+		Error  *Error      `json:"error,omitempty"`
+		ID     int32       `json:"id"`
+	}
+	err = websocket.JSON.Receive(ws, &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.ID != request.ID {
+		t.Fatalf("Expected response ID (%d) to equal request ID (%d), but it did not", response.ID, request.ID)
+	}
+	if response.Error == nil {
+		t.Fatal("Expected Error to be present, but it was not")
+	}
+	if response.Error.Code != 5 {
+		t.Fatalf("Expected Error.Code to be %d, but it was %d", 5, response.Error.Code)
+	}
+}

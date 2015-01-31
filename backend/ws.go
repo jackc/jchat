@@ -39,6 +39,11 @@ type LoginSuccess struct {
 	SessionID string `json:"sessionID"`
 }
 
+type RequestCredentials struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 const JSONRPCInvalidRequest = -32600
 const JSONRPCParseError = -32700
 const JSONRPCMethodNotFound = -32601
@@ -233,10 +238,7 @@ func (conn *ClientConn) Register(params json.RawMessage) (response Response) {
 }
 
 func (conn *ClientConn) Login(body json.RawMessage) (response Response) {
-	var credentials struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+	var credentials RequestCredentials
 
 	err := json.Unmarshal(body, &credentials)
 	if err != nil {
