@@ -44,10 +44,19 @@ type RequestCredentials struct {
 	Password string `json:"password"`
 }
 
-const JSONRPCInvalidRequest = -32600
-const JSONRPCParseError = -32700
-const JSONRPCMethodNotFound = -32601
-const JSONRPCInvalidParams = -32602
+// Standardized JSON-RPC errors
+var JSONRPCParseError = Error{Code: -32700, Message: "Parse error"}
+var JSONRPCInvalidRequest = Error{Code: -32600, Message: "Invalid Request"}
+var JSONRPCMethodNotFound = Error{Code: -32601, Message: "Method not found"}
+var JSONRPCInvalidParams = Error{Code: -32602, Message: "Invalid params"}
+
+// Custom JSON-RPC errors
+var JSONRPCInvalidPasswordError = Error{Code: 1, Message: "Invalid password"}
+
+func errorWithData(errTemplate Error, data interface{}) *Error {
+	errTemplate.Data = data
+	return &errTemplate
+}
 
 // TODO - separate handling of logged in / not logged in
 func (conn *ClientConn) Dispatch() {
@@ -100,7 +109,7 @@ func (conn *ClientConn) Dispatch() {
 				response = conn.PostMessage(req.Params)
 			default:
 				// unknown req method
-				response.Error = &Error{Code: JSONRPCMethodNotFound, Message: "Method not found"}
+				response.Error = errorWithData(JSONRPCMethodNotFound, req.Method)
 			}
 
 			if req.ID != nil {
@@ -167,10 +176,7 @@ func (conn *ClientConn) Dispatch() {
 			if _, ok := err.(*json.SyntaxError); ok {
 				var response Response
 				response.ID = json.Number("null")
-				response.Error = &Error{
-					Code:    JSONRPCParseError,
-					Message: err.Error(),
-				}
+				response.Error = errorWithData(JSONRPCParseError, err.Error())
 
 				err = websocket.JSON.Send(conn.ws, response)
 				if err != nil {
@@ -195,23 +201,23 @@ func (conn *ClientConn) Register(params json.RawMessage) (response Response) {
 	}
 
 	if err := json.Unmarshal(params, &registration); err != nil {
-		response.Error = &Error{Code: JSONRPCParseError, Message: "Parse error"}
+		response.Error = errorWithData(JSONRPCParseError, err.Error())
 		return response
 	}
 
 	if registration.Name == "" {
-		response.Error = &Error{Code: JSONRPCInvalidParams, Message: "Invalid params", Data: `Request must include the attribute "name"`}
+		response.Error = errorWithData(JSONRPCInvalidParams, `Request must include the attribute "name"`)
 		return response
 	}
 
 	if len(registration.Name) > 30 {
-		response.Error = &Error{Code: JSONRPCInvalidParams, Message: "Invalid params", Data: `"name" must be less than 30 characters`}
+		response.Error = errorWithData(JSONRPCInvalidParams, `"name" must be less than 30 characters`)
 		return response
 	}
 
 	err := ValidatePassword(registration.Password)
 	if err != nil {
-		response.Error = &Error{Code: 1, Message: "Invalid password", Data: err.Error()}
+		response.Error = errorWithData(JSONRPCInvalidPasswordError, err.Error())
 		return response
 	}
 
@@ -242,17 +248,17 @@ func (conn *ClientConn) Login(body json.RawMessage) (response Response) {
 
 	err := json.Unmarshal(body, &credentials)
 	if err != nil {
-		response.Error = &Error{Code: JSONRPCParseError, Message: "Parse error"}
+		response.Error = errorWithData(JSONRPCParseError, err.Error())
 		return response
 	}
 
 	if credentials.Email == "" {
-		response.Error = &Error{Code: JSONRPCInvalidParams, Message: "Invalid params", Data: `Request must include the attribute "email"`}
+		response.Error = errorWithData(JSONRPCInvalidParams, `Request must include the attribute "email"`)
 		return response
 	}
 
 	if credentials.Password == "" {
-		response.Error = &Error{Code: JSONRPCInvalidParams, Message: "Invalid params", Data: `Request must include the attribute "password"`}
+		response.Error = errorWithData(JSONRPCInvalidParams, `Request must include the attribute "password"`)
 		return response
 	}
 
@@ -280,12 +286,12 @@ func (conn *ClientConn) ResumeSession(body json.RawMessage) (response Response) 
 
 	err := json.Unmarshal(body, &credentials)
 	if err != nil {
-		response.Error = &Error{Code: JSONRPCParseError, Message: "Parse error"}
+		response.Error = errorWithData(JSONRPCParseError, err.Error())
 		return response
 	}
 
 	if credentials.SessionID == "" {
-		response.Error = &Error{Code: JSONRPCInvalidParams, Message: "Invalid params", Data: `Request must include the attribute "session_id"`}
+		response.Error = errorWithData(JSONRPCInvalidParams, `Request must include the attribute "session_id"`)
 		return response
 	}
 
@@ -309,12 +315,12 @@ func (conn *ClientConn) RequestPasswordReset(body json.RawMessage) (response Res
 
 	err := json.Unmarshal(body, &reset)
 	if err != nil {
-		response.Error = &Error{Code: JSONRPCParseError, Message: "Parse error"}
+		response.Error = errorWithData(JSONRPCParseError, err.Error())
 		return response
 	}
 
 	if reset.Email == "" {
-		response.Error = &Error{Code: JSONRPCInvalidParams, Message: "Invalid params", Data: `Request must include the attribute "email"`}
+		response.Error = errorWithData(JSONRPCInvalidParams, `Request must include the attribute "email"`)
 		return response
 	}
 
@@ -359,7 +365,7 @@ func (conn *ClientConn) ResetPassword(body json.RawMessage) (response Response) 
 
 	err := json.Unmarshal(body, &resetPassword)
 	if err != nil {
-		response.Error = &Error{Code: JSONRPCParseError, Message: "Parse error"}
+		response.Error = errorWithData(JSONRPCParseError, err.Error())
 		return response
 	}
 
@@ -400,7 +406,7 @@ func (conn *ClientConn) PostMessage(body json.RawMessage) (response Response) {
 
 	err := json.Unmarshal(body, &message)
 	if err != nil {
-		response.Error = &Error{Code: JSONRPCParseError, Message: "Parse error"}
+		response.Error = errorWithData(JSONRPCParseError, err.Error())
 		return response
 	}
 

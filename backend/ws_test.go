@@ -62,8 +62,8 @@ func TestClientConnInvalidJSON(t *testing.T) {
 	if response.Error == nil {
 		t.Fatal("Expected Error to be present, but it was not")
 	}
-	if response.Error.Code != JSONRPCParseError {
-		t.Fatalf("Expected Error.Code to be %d, but it was %d", JSONRPCParseError, response.Error.Code)
+	if response.Error.Code != JSONRPCParseError.Code {
+		t.Fatalf("Expected Error.Code to be %d, but it was %d", JSONRPCParseError.Code, response.Error.Code)
 	}
 }
 
