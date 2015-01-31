@@ -159,7 +159,24 @@ func (conn *ClientConn) Dispatch() {
 				return
 			}
 		case err := <-errChan:
+			if _, ok := err.(*json.SyntaxError); ok {
+				var response Response
+				response.ID = json.Number("null")
+				response.Error = &Error{
+					Code:    JSONRPCParseError,
+					Message: err.Error(),
+				}
+
+				err = websocket.JSON.Send(conn.ws, response)
+				if err != nil {
+					fmt.Println(err)
+					// Failed to send
+					return
+				}
+			}
+
 			fmt.Println("errChan: ", err)
+			fmt.Printf("%T", err)
 			return
 		}
 	}
