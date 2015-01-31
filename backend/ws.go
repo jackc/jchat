@@ -50,8 +50,16 @@ var JSONRPCInvalidRequest = Error{Code: -32600, Message: "Invalid Request"}
 var JSONRPCMethodNotFound = Error{Code: -32601, Message: "Method not found"}
 var JSONRPCInvalidParams = Error{Code: -32602, Message: "Invalid params"}
 
-// Custom JSON-RPC errors
-var JSONRPCInvalidPasswordError = Error{Code: 1, Message: "Invalid password"}
+// Custom JSON-RPC errors 4000-4999
+// Client errors - roughly correspond to HTTP 400-499 type errors
+var JSONRPCAunthenticationError = Error{Code: 4001, Message: "Authentication error"}
+var JSONRPCDuplicationError = Error{Code: 4002, Message: "Duplicate"}
+var JSONRPCInvalidPasswordError = Error{Code: 4003, Message: "Invalid password"}
+
+// Custom JSON-RPC errors 5000-5999
+// Server errors -- roughly correspond to HTTP 500-599 type errors
+var JSONRPCInternalError = Error{Code: 5000, Message: "Internal error"}
+var JSONRPCSendEmailError = Error{Code: 5001, Message: "Unable to send email"}
 
 func errorWithData(errTemplate Error, data interface{}) *Error {
 	errTemplate.Data = data
@@ -224,17 +232,17 @@ func (conn *ClientConn) Register(params json.RawMessage) (response Response) {
 	conn.user, err = conn.repo.CreateUser(registration.Name, registration.Email, registration.Password)
 	if err != nil {
 		if err, ok := err.(DuplicationError); ok {
-			response.Error = &Error{Code: 2, Message: "Already taken", Data: err.Field}
+			response.Error = errorWithData(JSONRPCDuplicationError, err.Field)
 			return response
 		} else {
-			response.Error = &Error{Code: 3, Message: "Unable to create"}
+			response.Error = errorWithData(JSONRPCInternalError, "Unable to create user")
 			return response
 		}
 	}
 
 	sessionID, err := conn.repo.CreateSession(conn.user.ID)
 	if err != nil {
-		response.Error = &Error{Code: 5, Message: "Unable to create session"}
+		response.Error = errorWithData(JSONRPCInternalError, "Unable to create session")
 		return response
 	}
 
@@ -264,13 +272,13 @@ func (conn *ClientConn) Login(body json.RawMessage) (response Response) {
 
 	conn.user, err = conn.repo.Login(credentials.Email, credentials.Password)
 	if err != nil {
-		response.Error = &Error{Code: 5, Message: "Bad email or password"}
+		response.Error = errorWithData(JSONRPCAunthenticationError, "Bad email or password")
 		return response
 	}
 
 	sessionID, err := conn.repo.CreateSession(conn.user.ID)
 	if err != nil {
-		response.Error = &Error{Code: 5, Message: "Unable to create session"}
+		response.Error = errorWithData(JSONRPCInternalError, "Unable to create session")
 		return response
 	}
 
@@ -296,8 +304,12 @@ func (conn *ClientConn) ResumeSession(body json.RawMessage) (response Response) 
 	}
 
 	userID, err := conn.repo.GetUserIDBySessionID(credentials.SessionID)
+	if err == ErrNotFound {
+		response.Error = errorWithData(JSONRPCAunthenticationError, "Invalid sessionID")
+		return response
+	}
 	if err != nil {
-		response.Error = &Error{Code: 14, Message: "Cannot resume session"}
+		response.Error = errorWithData(JSONRPCInternalError, "Cannot resume session")
 		return response
 	}
 
@@ -327,7 +339,7 @@ func (conn *ClientConn) RequestPasswordReset(body json.RawMessage) (response Res
 	var remoteIP string
 	remoteIP, _, err = net.SplitHostPort(conn.ws.Request().RemoteAddr)
 	if err != nil {
-		response.Error = &Error{Code: 10, Message: "Unable to get remoteIP"}
+		response.Error = errorWithData(JSONRPCInternalError, "Unable to get remoteIP")
 		return response
 	}
 
@@ -338,18 +350,18 @@ func (conn *ClientConn) RequestPasswordReset(body json.RawMessage) (response Res
 	}
 	if err != nil {
 		fmt.Println(err)
-		response.Error = &Error{Code: 7, Message: "Unable to create password reset token"}
+		response.Error = errorWithData(JSONRPCInternalError, "Unable to create password reset token")
 		return response
 	}
 
 	if conn.mailer == nil {
-		response.Error = &Error{Code: 8, Message: "Mail is not configured -- cannot send password reset email"}
+		response.Error = errorWithData(JSONRPCSendEmailError, "Mail is not configured")
 		return response
 	}
 
 	err = conn.mailer.SendPasswordResetMail(reset.Email, token)
 	if err != nil {
-		response.Error = &Error{Code: 9, Message: "Send email failed"}
+		response.Error = errorWithData(JSONRPCSendEmailError, "Send email failed")
 		return response
 	}
 
@@ -372,13 +384,13 @@ func (conn *ClientConn) ResetPassword(body json.RawMessage) (response Response) 
 	var remoteIP string
 	remoteIP, _, err = net.SplitHostPort(conn.ws.Request().RemoteAddr)
 	if err != nil {
-		response.Error = &Error{Code: 10, Message: "Unable to get remoteIP"}
+		response.Error = errorWithData(JSONRPCInternalError, "Unable to get remoteIP")
 		return response
 	}
 
 	err = conn.repo.SetPasswordByToken(resetPassword.Token, resetPassword.Password, remoteIP)
 	if err != nil {
-		response.Error = &Error{Code: 11, Message: "Failed to update password"}
+		response.Error = errorWithData(JSONRPCInternalError, "Failed to update password")
 		return response
 	}
 
@@ -389,7 +401,7 @@ func (conn *ClientConn) ResetPassword(body json.RawMessage) (response Response) 
 func (conn *ClientConn) InitChat(body json.RawMessage) (response Response) {
 	initJSON, err := conn.repo.GetInit(conn.user.ID)
 	if err != nil {
-		response.Error = &Error{Code: 12, Message: "Unable to initialize chat"}
+		response.Error = errorWithData(JSONRPCInternalError, "Unable to initialize chat")
 		return response
 	}
 
@@ -412,7 +424,7 @@ func (conn *ClientConn) PostMessage(body json.RawMessage) (response Response) {
 
 	_, err = conn.repo.PostMessage(message.ChannelID, conn.user.ID, message.Text)
 	if err != nil {
-		response.Error = &Error{Code: 13, Message: "Unable to post message"}
+		response.Error = errorWithData(JSONRPCInternalError, "Unable to post message")
 		return response
 	}
 

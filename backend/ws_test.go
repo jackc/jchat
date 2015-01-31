@@ -67,7 +67,7 @@ func TestClientConnInvalidJSON(t *testing.T) {
 	}
 }
 
-func TestClientConnLogin(t *testing.T) {
+func TestClientConnLoginFailure(t *testing.T) {
 	repo := getPgxRepository(t)
 	server := getTestWsServer(t, repo)
 	defer server.Close()
@@ -104,7 +104,55 @@ func TestClientConnLogin(t *testing.T) {
 	if response.Error == nil {
 		t.Fatal("Expected Error to be present, but it was not")
 	}
-	if response.Error.Code != 5 {
-		t.Fatalf("Expected Error.Code to be %d, but it was %d", 5, response.Error.Code)
+	if response.Error.Code != JSONRPCAunthenticationError.Code {
+		t.Fatalf("Expected Error.Code to be %d, but it was %d", JSONRPCAunthenticationError.Code, response.Error.Code)
+	}
+}
+
+func TestClientConnLoginSuccess(t *testing.T) {
+	repo := getPgxRepository(t)
+
+	user, err := repo.CreateUser("joe", "joe@example.com", "password")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := getTestWsServer(t, repo)
+	defer server.Close()
+	ws := connectWebSocketClient(t, server)
+	defer ws.Close()
+
+	request := struct {
+		Method string             `json:"method"`
+		Params RequestCredentials `json:"params"`
+		ID     int32              `json:"id"`
+	}{
+		Method: "login",
+		Params: RequestCredentials{"joe@example.com", "password"},
+		ID:     1,
+	}
+
+	err = websocket.JSON.Send(ws, &request)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var response struct {
+		Result LoginSuccess `json:"result"`
+		Error  *Error       `json:"error,omitempty"`
+		ID     int32        `json:"id"`
+	}
+	err = websocket.JSON.Receive(ws, &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.ID != request.ID {
+		t.Fatalf("Expected response ID (%d) to equal request ID (%d), but it did not", response.ID, request.ID)
+	}
+	if response.Error != nil {
+		t.Fatalf("Unexpected error: %v", response.Error)
+	}
+	if response.Result.UserID != user.ID {
+		t.Fatalf("Expected Result.UserID to be %d, but it was %d", user.ID, response.Result.UserID)
 	}
 }
