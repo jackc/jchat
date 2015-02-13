@@ -47,6 +47,10 @@ type RequestCredentials struct {
 	Password string `json:"password"`
 }
 
+type CreateChannel struct {
+	Name string `json:"name"`
+}
+
 // Standardized JSON-RPC errors
 var JSONRPCParseError = Error{Code: -32700, Message: "Parse error"}
 var JSONRPCInvalidRequest = Error{Code: -32600, Message: "Invalid Request"}
@@ -111,6 +115,8 @@ func (conn *ClientConn) Dispatch() {
 				response = conn.InitChat(req.Params)
 			case "post_message":
 				response = conn.PostMessage(req.Params)
+			case "create_channel":
+				response = conn.CreateChannel(req.Params)
 			case "logout":
 				conn.user = User{}
 			default:
@@ -459,6 +465,30 @@ func (conn *ClientConn) PostMessage(body json.RawMessage) (response Response) {
 	_, err = conn.repo.PostMessage(message.ChannelID, conn.user.ID, message.Text)
 	if err != nil {
 		response.Error = errorWithData(JSONRPCInternalError, "Unable to post message")
+		return response
+	}
+
+	response.Result = true
+	return response
+}
+
+func (conn *ClientConn) CreateChannel(body json.RawMessage) (response Response) {
+	if conn.user.ID == 0 {
+		response.Error = &JSONRPCUnauthenticatedError
+		return response
+	}
+
+	var message CreateChannel
+
+	err := json.Unmarshal(body, &message)
+	if err != nil {
+		response.Error = errorWithData(JSONRPCParseError, err.Error())
+		return response
+	}
+
+	_, err = conn.repo.CreateChannel(message.Name, conn.user.ID)
+	if err != nil {
+		response.Error = errorWithData(JSONRPCInternalError, "Unable to create channel")
 		return response
 	}
 

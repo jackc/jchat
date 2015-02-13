@@ -38,6 +38,39 @@ func connectWebSocketClient(t testing.TB, server *httptest.Server) *websocket.Co
 	return ws
 }
 
+func login(t testing.TB, ws *websocket.Conn, email, password string) {
+	request := struct {
+		Method string             `json:"method"`
+		Params RequestCredentials `json:"params"`
+		ID     int32              `json:"id"`
+	}{
+		Method: "login",
+		Params: RequestCredentials{email, password},
+		ID:     1,
+	}
+
+	err := websocket.JSON.Send(ws, &request)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var response struct {
+		Result LoginSuccess `json:"result"`
+		Error  *Error       `json:"error,omitempty"`
+		ID     int32        `json:"id"`
+	}
+	err = websocket.JSON.Receive(ws, &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.ID != request.ID {
+		t.Fatalf("Expected response ID (%d) to equal request ID (%d), but it did not", response.ID, request.ID)
+	}
+	if response.Error != nil {
+		t.Fatalf("Unexpected error: %v", response.Error)
+	}
+}
+
 func TestClientConnInvalidJSON(t *testing.T) {
 	repo := getPgxRepository(t)
 	server := getTestWsServer(t, repo)
@@ -235,5 +268,56 @@ func TestClientConnUnauthenticatedUserCannotInitChat(t *testing.T) {
 	}
 	if response.Error.Code != JSONRPCUnauthenticatedError.Code {
 		t.Fatalf("Expected Error.Code to be %d, but it was %d", JSONRPCUnauthenticatedError.Code, response.Error.Code)
+	}
+}
+
+func TestClientConnCreateChannel(t *testing.T) {
+	repo := getPgxRepository(t)
+
+	_, err := repo.CreateUser("joe", "joe@example.com", "password")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := getTestWsServer(t, repo)
+	defer server.Close()
+	ws := connectWebSocketClient(t, server)
+	defer ws.Close()
+
+	login(t, ws, "joe@example.com", "password")
+
+	request := struct {
+		Method string        `json:"method"`
+		Params CreateChannel `json:"params"`
+		ID     int32         `json:"id"`
+	}{
+		Method: "create_channel",
+		Params: CreateChannel{Name: "General"},
+		ID:     1,
+	}
+
+	err = websocket.JSON.Send(ws, &request)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var response struct {
+		Result interface{} `json:"result,omitempty"`
+		Error  *Error      `json:"error,omitempty"`
+		ID     int32       `json:"id"`
+	}
+	err = websocket.JSON.Receive(ws, &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.ID != request.ID {
+		t.Fatalf("Expected response ID (%d) to equal request ID (%d), but it did not", response.ID, request.ID)
+	}
+	if response.Error != nil {
+		t.Fatalf("Unexpected error: %v", response.Error)
+	}
+	if response.Result != true {
+		t.Fatalf("Expected Result to be %v, but it was %v", true, response.Result)
 	}
 }
