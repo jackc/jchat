@@ -158,7 +158,7 @@ func TestClientConnLoginSuccess(t *testing.T) {
 	}
 }
 
-func TestClientConnUnauthenticatedUser(t *testing.T) {
+func TestClientConnUnauthenticatedUserDoesNotReceiveNotifications(t *testing.T) {
 	repo := getPgxRepository(t)
 
 	server := getTestWsServer(t, repo)
@@ -191,5 +191,49 @@ func TestClientConnUnauthenticatedUser(t *testing.T) {
 	bytesRead, _ := ws.Read(buf)
 	if bytesRead != 0 {
 		t.Fatalf("Unauthenticated client web socket received unexpected message: %s", string(buf))
+	}
+}
+
+func TestClientConnUnauthenticatedUserCannotInitChat(t *testing.T) {
+	repo := getPgxRepository(t)
+
+	server := getTestWsServer(t, repo)
+	defer server.Close()
+	ws := connectWebSocketClient(t, server)
+	defer ws.Close()
+
+	request := struct {
+		Method string          `json:"method"`
+		Params json.RawMessage `json:"params"`
+		ID     int32           `json:"id"`
+	}{
+		Method: "init_chat",
+		Params: []byte("{}"),
+		ID:     1,
+	}
+
+	err := websocket.JSON.Send(ws, &request)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var response struct {
+		Result interface{} `json:"result,omitempty"`
+		Error  *Error      `json:"error,omitempty"`
+		ID     int32       `json:"id"`
+	}
+	err = websocket.JSON.Receive(ws, &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.ID != request.ID {
+		t.Fatalf("Expected response ID (%d) to equal request ID (%d), but it did not", response.ID, request.ID)
+	}
+	if response.Error == nil {
+		t.Fatalf("Expected an error, but didn't get one. %#v", response)
+	}
+	if response.Error.Code != JSONRPCUnauthenticatedError.Code {
+		t.Fatalf("Expected Error.Code to be %d, but it was %d", JSONRPCUnauthenticatedError.Code, response.Error.Code)
 	}
 }

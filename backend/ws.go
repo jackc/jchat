@@ -58,6 +58,7 @@ var JSONRPCInvalidParams = Error{Code: -32602, Message: "Invalid params"}
 var JSONRPCAunthenticationError = Error{Code: 4001, Message: "Authentication error"}
 var JSONRPCDuplicationError = Error{Code: 4002, Message: "Duplicate"}
 var JSONRPCInvalidPasswordError = Error{Code: 4003, Message: "Invalid password"}
+var JSONRPCUnauthenticatedError = Error{Code: 4004, Message: "Unauthenticated error"}
 
 // Custom JSON-RPC errors 5000-5999
 // Server errors -- roughly correspond to HTTP 500-599 type errors
@@ -69,7 +70,6 @@ func errorWithData(errTemplate Error, data interface{}) *Error {
 	return &errTemplate
 }
 
-// TODO - separate handling of logged in / not logged in
 func (conn *ClientConn) Dispatch() {
 	defer conn.removeRepositoryListeners()
 
@@ -423,6 +423,11 @@ func (conn *ClientConn) ResetPassword(body json.RawMessage) (response Response) 
 }
 
 func (conn *ClientConn) InitChat(body json.RawMessage) (response Response) {
+	if conn.user.ID == 0 {
+		response.Error = &JSONRPCUnauthenticatedError
+		return response
+	}
+
 	initJSON, err := conn.repo.GetInit(conn.user.ID)
 	if err != nil {
 		response.Error = errorWithData(JSONRPCInternalError, "Unable to initialize chat")
@@ -435,6 +440,11 @@ func (conn *ClientConn) InitChat(body json.RawMessage) (response Response) {
 }
 
 func (conn *ClientConn) PostMessage(body json.RawMessage) (response Response) {
+	if conn.user.ID == 0 {
+		response.Error = &JSONRPCUnauthenticatedError
+		return response
+	}
+
 	var message struct {
 		ChannelID int32  `json:"channel_id"`
 		Text      string `json:"text"`
