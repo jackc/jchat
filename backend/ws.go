@@ -14,6 +14,9 @@ type ClientConn struct {
 	repo   Repository
 	logger log.Logger
 	mailer Mailer
+
+	messagePostedChan chan Message
+	userCreatedChan   chan User
 }
 
 type Request struct {
@@ -68,13 +71,7 @@ func errorWithData(errTemplate Error, data interface{}) *Error {
 
 // TODO - separate handling of logged in / not logged in
 func (conn *ClientConn) Dispatch() {
-	chatChan := make(chan Message)
-	conn.repo.MessagePostedSignal().Add(chatChan)
-	defer conn.repo.MessagePostedSignal().Remove(chatChan)
-
-	userCreatedChan := make(chan User)
-	conn.repo.UserCreatedSignal().Add(userCreatedChan)
-	defer conn.repo.UserCreatedSignal().Remove(userCreatedChan)
+	defer conn.removeRepositoryListeners()
 
 	reqChan := make(chan Request)
 	errChan := make(chan error)
@@ -103,18 +100,19 @@ func (conn *ClientConn) Dispatch() {
 				response = conn.Register(req.Params)
 			case "login":
 				response = conn.Login(req.Params)
-			case "logout":
-				conn.user = User{}
 			case "resume_session":
 				response = conn.ResumeSession(req.Params)
 			case "request_password_reset":
 				response = conn.RequestPasswordReset(req.Params)
 			case "reset_password":
 				response = conn.ResetPassword(req.Params)
+
 			case "init_chat":
 				response = conn.InitChat(req.Params)
 			case "post_message":
 				response = conn.PostMessage(req.Params)
+			case "logout":
+				conn.user = User{}
 			default:
 				// unknown req method
 				response.Error = errorWithData(JSONRPCMethodNotFound, req.Method)
@@ -130,7 +128,7 @@ func (conn *ClientConn) Dispatch() {
 					return
 				}
 			}
-		case message := <-chatChan:
+		case message := <-conn.messagePostedChan:
 			var msg struct {
 				ID           int64  `json:"id"`
 				ChannelID    int32  `json:"channel_id"`
@@ -158,7 +156,7 @@ func (conn *ClientConn) Dispatch() {
 				// Failed to send
 				return
 			}
-		case user := <-userCreatedChan:
+		case user := <-conn.userCreatedChan:
 			var msg struct {
 				ID   int32  `json:"id"`
 				Name string `json:"name"`
@@ -198,6 +196,26 @@ func (conn *ClientConn) Dispatch() {
 			fmt.Printf("%T", err)
 			return
 		}
+	}
+}
+
+func (conn *ClientConn) addRepositoryListeners() {
+	conn.removeRepositoryListeners()
+
+	conn.messagePostedChan = make(chan Message)
+	conn.repo.MessagePostedSignal().Add(conn.messagePostedChan)
+
+	conn.userCreatedChan = make(chan User)
+	defer conn.repo.UserCreatedSignal().Add(conn.userCreatedChan)
+}
+
+func (conn *ClientConn) removeRepositoryListeners() {
+	if conn.messagePostedChan != nil {
+		conn.repo.MessagePostedSignal().Remove(conn.messagePostedChan)
+	}
+
+	if conn.userCreatedChan != nil {
+		conn.repo.UserCreatedSignal().Remove(conn.userCreatedChan)
 	}
 }
 
@@ -246,6 +264,8 @@ func (conn *ClientConn) Register(params json.RawMessage) (response Response) {
 		return response
 	}
 
+	conn.addRepositoryListeners()
+
 	response.Result = LoginSuccess{UserID: conn.user.ID, SessionID: sessionID}
 
 	return response
@@ -282,6 +302,8 @@ func (conn *ClientConn) Login(body json.RawMessage) (response Response) {
 		return response
 	}
 
+	conn.addRepositoryListeners()
+
 	response.Result = LoginSuccess{UserID: conn.user.ID, SessionID: sessionID}
 
 	return response
@@ -314,6 +336,8 @@ func (conn *ClientConn) ResumeSession(body json.RawMessage) (response Response) 
 	}
 
 	conn.user, err = conn.repo.GetUser(userID)
+
+	conn.addRepositoryListeners()
 
 	response.Result = LoginSuccess{UserID: conn.user.ID, SessionID: credentials.SessionID}
 

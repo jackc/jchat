@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func getTestWsServer(t testing.TB, repo Repository) *httptest.Server {
@@ -154,5 +155,41 @@ func TestClientConnLoginSuccess(t *testing.T) {
 	}
 	if response.Result.UserID != user.ID {
 		t.Fatalf("Expected Result.UserID to be %d, but it was %d", user.ID, response.Result.UserID)
+	}
+}
+
+func TestClientConnUnauthenticatedUser(t *testing.T) {
+	repo := getPgxRepository(t)
+
+	server := getTestWsServer(t, repo)
+	defer server.Close()
+	ws := connectWebSocketClient(t, server)
+	defer ws.Close()
+
+	// CreateUser will cause user_created message to be sent to authenticated users
+	user, err := repo.CreateUser("joe", "joe@example.com", "password")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	channelID, err := repo.CreateChannel("General", user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = repo.PostMessage(channelID, user.ID, "Hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ws.SetReadDeadline(time.Now().Add(time.Millisecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buf := make([]byte, 1024)
+	bytesRead, _ := ws.Read(buf)
+	if bytesRead != 0 {
+		t.Fatalf("Unauthenticated client web socket received unexpected message: %s", string(buf))
 	}
 }
