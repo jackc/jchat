@@ -36,7 +36,15 @@
 
     this.channels = attrs.channels.map(function(c) {
       return new App.Models.Channel(this, c)
-    }, this)
+    }, this).sort(function(a,b) {
+      if(a.name < b.name) {
+        return -1;
+      }
+      if(a.name > b.name) {
+        return 1;
+      }
+      return 0;
+    })
 
     this.selectedChannel = this.channels[0]
 
