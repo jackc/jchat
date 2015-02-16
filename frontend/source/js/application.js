@@ -6,6 +6,7 @@
 //= require models/chat.js
 //= require views/view.js
 //= require views/home.js
+//= require views/channels.js
 //= require views/login.js
 //= require views/lost_password.js
 //= require views/reset_password.js

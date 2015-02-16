@@ -50,6 +50,10 @@
   }
 
   App.Models.Chat.prototype = {
+    createChannel: function(attrs, callbacks) {
+      this.conn.createChannel(attrs, callbacks)
+    },
+
     changeChannel: function(channel) {
       if(channel == this.selectedChannel) {
         return

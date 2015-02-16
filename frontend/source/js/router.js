@@ -9,7 +9,8 @@
       register: "register",
       lostPassword: "lostPassword",
       resetPassword: "resetPassword",
-      home: "home"
+      home: "home",
+      channels: "channels"
     },
 
     login: function() {
@@ -30,6 +31,10 @@
 
     home: function() {
       this.changePage(App.Views.HomePage, {chat: window.chat});
+    },
+
+    channels: function() {
+      this.changePage(App.Views.ChannelsPage, {chat: window.chat});
     },
 
     changePage: function(pageClass, options) {

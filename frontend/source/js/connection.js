@@ -177,6 +177,10 @@
 
     sendMessage: function(message, callbacks) {
       this.sendRequest("post_message", message, callbacks)
+    },
+
+    createChannel: function(channel, callbacks) {
+      this.sendRequest("create_channel", channel, callbacks)
     }
   }
 })()
