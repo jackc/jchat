@@ -93,3 +93,8 @@ func TestPgxRepositoryUserCreatedNotifier(t *testing.T) {
 	repo := getPgxRepository(t)
 	testUserCreatedNotifier(t, repo, repo)
 }
+
+func TestPgxRepositoryChannelCreatedSignaler(t *testing.T) {
+	repo := getPgxRepository(t)
+	testChannelCreatedSignaler(t, repo, repo, repo)
+}

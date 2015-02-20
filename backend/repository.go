@@ -40,6 +40,7 @@ type User struct {
 	Email string
 }
 
+// +gen signal
 type Channel struct {
 	ID   int32
 	Name string
@@ -68,6 +69,10 @@ type ChatRepository interface {
 	GetInit(userID int32) (json []byte, err error)
 }
 
+type ChannelCreatedSignaler interface {
+	ChannelCreatedSignal() *ChannelSignal
+}
+
 type MessagePostedSignaler interface {
 	MessagePostedSignal() *MessageSignal
 }
@@ -77,6 +82,7 @@ type Repository interface {
 	UserCreatedSignaler
 	SessionRepository
 	ChatRepository
+	ChannelCreatedSignaler
 	MessagePostedSignaler
 }
 

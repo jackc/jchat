@@ -81,9 +81,10 @@ func loadPreparedStatements(conf ini.File) (map[string]string, error) {
 }
 
 type PgxRepository struct {
-	pool                *pgx.ConnPool
-	userCreatedSignal   UserSignal
-	messagePostedSignal MessageSignal
+	pool                 *pgx.ConnPool
+	userCreatedSignal    UserSignal
+	channelCreatedSignal ChannelSignal
+	messagePostedSignal  MessageSignal
 }
 
 func NewPgxRepository(config pgx.ConnPoolConfig, preparedStatements map[string]string) (*PgxRepository, error) {
@@ -112,6 +113,10 @@ func (repo *PgxRepository) MessagePostedSignal() *MessageSignal {
 
 func (repo *PgxRepository) UserCreatedSignal() *UserSignal {
 	return &repo.userCreatedSignal
+}
+
+func (repo *PgxRepository) ChannelCreatedSignal() *ChannelSignal {
+	return &repo.channelCreatedSignal
 }
 
 func (repo *PgxRepository) CreateUser(name, email, password string) (user User, err error) {
@@ -291,6 +296,8 @@ func (repo *PgxRepository) CreateChannel(name string, userID int32) (channelID i
 	if err != nil {
 		return 0, err
 	}
+
+	go repo.channelCreatedSignal.Dispatch(Channel{ID: channelID, Name: name})
 
 	return channelID, nil
 }

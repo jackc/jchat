@@ -293,3 +293,47 @@ func testUserCreatedNotifier(t *testing.T, signaler UserCreatedSignaler, repo Us
 		t.Fatalf("repo.CreateUser returned error: %v", err)
 	}
 }
+
+func testChannelCreatedSignaler(t *testing.T, signaler ChannelCreatedSignaler, chatRepo ChatRepository, userRepo UserRepository) {
+	user, err := userRepo.CreateUser("john", "john@example.com", "secret")
+	if err != nil {
+		t.Fatalf("userRepo.CreateUser returned error: %v", err)
+	}
+
+	var notification Channel
+	finished := make(chan bool)
+
+	c := make(chan Channel)
+	signaler.ChannelCreatedSignal().Add(c)
+	go func() {
+		notification = <-c
+		finished <- true
+	}()
+
+	channelID, err := chatRepo.CreateChannel("General", user.ID)
+	if err != nil {
+		t.Fatalf("chatRepo.CreateUser returned error: %v", err)
+	}
+
+	select {
+	case <-finished:
+	case <-time.After(time.Millisecond * 100):
+		t.Fatal("Never received message on channel c")
+	}
+
+	if notification.ID != channelID {
+		t.Errorf("Expected notification.ID to be %v, but it was %v", channelID, notification.ID)
+	}
+
+	if notification.Name != "General" {
+		t.Errorf("Expected notification.Name to be %v, but it was %v", "General", notification.Name)
+	}
+
+	signaler.ChannelCreatedSignal().Remove(c)
+
+	// If the Remove didn't work this will hang
+	_, err = chatRepo.CreateChannel("Random", user.ID)
+	if err != nil {
+		t.Fatalf("chatRepo.CreateChannel returned error: %v", err)
+	}
+}
