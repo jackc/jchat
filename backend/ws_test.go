@@ -321,3 +321,53 @@ func TestClientConnCreateChannel(t *testing.T) {
 		t.Fatalf("Expected Result to be %v, but it was %v", true, response.Result)
 	}
 }
+
+func TestClientConnIsNotifiedChannelCreated(t *testing.T) {
+	repo := getPgxRepository(t)
+
+	user, err := repo.CreateUser("joe", "joe@example.com", "password")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := getTestWsServer(t, repo)
+	defer server.Close()
+	ws := connectWebSocketClient(t, server)
+	defer ws.Close()
+
+	login(t, ws, "joe@example.com", "password")
+
+	channelID, err := repo.CreateChannel("General", user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type channelCreated struct {
+		ID   int32  `json:"id"`
+		Name string `json:"name"`
+	}
+
+	err = ws.SetReadDeadline(time.Now().Add(time.Millisecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var notice struct {
+		Method string         `json:"method"`
+		Params channelCreated `json:"params"`
+	}
+	err = websocket.JSON.Receive(ws, &notice)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if notice.Method != "channel_created" {
+		t.Fatalf("Expected notice.Method to be %s, but it was %s", "channel_created", notice.Method)
+	}
+	if notice.Params.ID != channelID {
+		t.Fatalf("Expected notice.Params.ID to be %d, but it was %d", channelID, notice.Params.ID)
+	}
+	if notice.Params.Name != "General" {
+		t.Fatalf("Expected notice.Params.Name to be %s, but it was %s", "General", notice.Params.Name)
+	}
+}

@@ -15,8 +15,9 @@ type ClientConn struct {
 	logger log.Logger
 	mailer Mailer
 
-	messagePostedChan chan Message
-	userCreatedChan   chan User
+	channelCreatedChan chan Channel
+	messagePostedChan  chan Message
+	userCreatedChan    chan User
 }
 
 type Request struct {
@@ -134,6 +135,28 @@ func (conn *ClientConn) Dispatch() {
 					return
 				}
 			}
+		case channel := <-conn.channelCreatedChan:
+			var msg struct {
+				ID   int32  `json:"id"`
+				Name string `json:"name"`
+			}
+
+			msg.ID = channel.ID
+			msg.Name = channel.Name
+
+			var notification struct {
+				Method string      `json:"method"`
+				Params interface{} `json:"params"`
+			}
+
+			notification.Method = "channel_created"
+			notification.Params = msg
+			err := websocket.JSON.Send(conn.ws, notification)
+			if err != nil {
+				fmt.Println(err)
+				// Failed to send
+				return
+			}
 		case message := <-conn.messagePostedChan:
 			var msg struct {
 				ID           int64  `json:"id"`
@@ -208,14 +231,21 @@ func (conn *ClientConn) Dispatch() {
 func (conn *ClientConn) addRepositoryListeners() {
 	conn.removeRepositoryListeners()
 
+	conn.channelCreatedChan = make(chan Channel)
+	conn.repo.ChannelCreatedSignal().Add(conn.channelCreatedChan)
+
 	conn.messagePostedChan = make(chan Message)
 	conn.repo.MessagePostedSignal().Add(conn.messagePostedChan)
 
 	conn.userCreatedChan = make(chan User)
-	defer conn.repo.UserCreatedSignal().Add(conn.userCreatedChan)
+	conn.repo.UserCreatedSignal().Add(conn.userCreatedChan)
 }
 
 func (conn *ClientConn) removeRepositoryListeners() {
+	if conn.channelCreatedChan != nil {
+		conn.repo.ChannelCreatedSignal().Remove(conn.channelCreatedChan)
+	}
+
 	if conn.messagePostedChan != nil {
 		conn.repo.MessagePostedSignal().Remove(conn.messagePostedChan)
 	}
