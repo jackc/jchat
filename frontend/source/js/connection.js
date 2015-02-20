@@ -7,6 +7,7 @@
 
     this.firstRequestStarted = new signals.Signal()
     this.lastRequestFinished = new signals.Signal()
+    this.channelCreated = new signals.Signal()
     this.messagePosted = new signals.Signal()
     this.userCreated = new signals.Signal()
 
@@ -98,6 +99,9 @@
 
     onNotification: function(notification) {
       switch(notification.method) {
+        case "channel_created":
+          this.channelCreated.dispatch(notification.params)
+          break
         case "message_posted":
           this.messagePosted.dispatch(notification.params)
           break

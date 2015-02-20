@@ -36,19 +36,20 @@
 
     this.channels = attrs.channels.map(function(c) {
       return new App.Models.Channel(this, c)
-    }, this).sort(function(a,b) {
-      if(a.name < b.name) {
-        return -1;
-      }
-      if(a.name > b.name) {
-        return 1;
-      }
-      return 0;
-    })
+    }, this)
+
+    this.channels.alphaCmp = function(a,b) {
+      return a.name.localeCompare(b.name, "en", {sensitivity: "base"})
+    }
+
+    this.channels.sort(this.channels.alphaCmp)
 
     this.selectedChannel = this.channels[0]
 
     this.channelChanged = new signals.Signal()
+
+    this.onChannelCreated = this.onChannelCreated.bind(this)
+    this.conn.channelCreated.add(this.onChannelCreated)
 
     this.onUserCreated = this.onUserCreated.bind(this)
     this.conn.userCreated.add(this.onUserCreated)
@@ -73,6 +74,13 @@
 
     postMessage: function(message) {
       this.conn.sendMessage(message)
+    },
+
+    onChannelCreated: function(channel) {
+      channel.messages = []
+      var c = new App.Models.Channel(this, channel)
+      this.channels.push(c)
+      this.channels.sort(this.channels.alphaCmp)
     },
 
     onUserCreated: function(user) {
