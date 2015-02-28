@@ -1,5 +1,6 @@
 //= require date.js
 //= require vendor/signals.min.js
+//= require vendor/autolink-min.js
 //= require_tree ./templates
 //= require namespace.js
 //= require connection.js
