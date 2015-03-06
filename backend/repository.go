@@ -63,6 +63,7 @@ type SessionRepository interface {
 
 type ChatRepository interface {
 	CreateChannel(name string, userID int32) (channelID int32, err error)
+	RenameChannel(channelID int32, name string) (err error)
 	GetChannels() (channels []Channel, err error)
 	PostMessage(channelID int32, authorID int32, body string) (messageID int64, err error)
 	GetMessages(channelID int32, beforeMessageID int32, maxCount int32) (messages []Message, err error)

@@ -160,9 +160,14 @@ func testChatRepository(t *testing.T, repo ChatRepository, userID int32) {
 		t.Errorf("Expected repo.GetChannels to return %d channels, but it was %d", 0, len(channels))
 	}
 
-	channelID, err := repo.CreateChannel("Test", userID)
+	channelID, err := repo.CreateChannel("Asdf", userID)
 	if err != nil {
 		t.Fatalf("repo.CreateChannel returned error: %v", err)
+	}
+
+	err = repo.RenameChannel(channelID, "Test")
+	if err != nil {
+		t.Fatalf("repo.RenameChannel returned error: %v", err)
 	}
 
 	channels, err = repo.GetChannels()

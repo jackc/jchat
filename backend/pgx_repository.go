@@ -302,6 +302,18 @@ func (repo *PgxRepository) CreateChannel(name string, userID int32) (channelID i
 	return channelID, nil
 }
 
+func (repo *PgxRepository) RenameChannel(channelID int32, name string) (err error) {
+	commandTag, err := repo.pool.Exec("rename_channel", channelID, name)
+	if err != nil {
+		return err
+	}
+	if commandTag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
 func (repo *PgxRepository) GetChannels() (channels []Channel, err error) {
 	channels = make([]Channel, 0, 8)
 	rows, _ := repo.pool.Query("get_channels")
