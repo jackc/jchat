@@ -16,6 +16,7 @@ type ClientConn struct {
 	mailer Mailer
 
 	channelCreatedChan chan Channel
+	channelRenamedChan chan Channel
 	messagePostedChan  chan Message
 	userCreatedChan    chan User
 }
@@ -49,6 +50,11 @@ type RequestCredentials struct {
 }
 
 type CreateChannel struct {
+	Name string `json:"name"`
+}
+
+type RenameChannel struct {
+	ID   int32  `json:"id"`
 	Name string `json:"name"`
 }
 
@@ -118,6 +124,8 @@ func (conn *ClientConn) Dispatch() {
 				response = conn.PostMessage(req.Params)
 			case "create_channel":
 				response = conn.CreateChannel(req.Params)
+			case "rename_channel":
+				response = conn.RenameChannel(req.Params)
 			case "logout":
 				conn.user = User{}
 			default:
@@ -150,6 +158,28 @@ func (conn *ClientConn) Dispatch() {
 			}
 
 			notification.Method = "channel_created"
+			notification.Params = msg
+			err := websocket.JSON.Send(conn.ws, notification)
+			if err != nil {
+				fmt.Println(err)
+				// Failed to send
+				return
+			}
+		case channel := <-conn.channelRenamedChan:
+			var msg struct {
+				ID   int32  `json:"id"`
+				Name string `json:"name"`
+			}
+
+			msg.ID = channel.ID
+			msg.Name = channel.Name
+
+			var notification struct {
+				Method string      `json:"method"`
+				Params interface{} `json:"params"`
+			}
+
+			notification.Method = "channel_renamed"
 			notification.Params = msg
 			err := websocket.JSON.Send(conn.ws, notification)
 			if err != nil {
@@ -234,6 +264,9 @@ func (conn *ClientConn) addRepositoryListeners() {
 	conn.channelCreatedChan = make(chan Channel)
 	conn.repo.ChannelCreatedSignal().Add(conn.channelCreatedChan)
 
+	conn.channelRenamedChan = make(chan Channel)
+	conn.repo.ChannelRenamedSignal().Add(conn.channelRenamedChan)
+
 	conn.messagePostedChan = make(chan Message)
 	conn.repo.MessagePostedSignal().Add(conn.messagePostedChan)
 
@@ -244,6 +277,10 @@ func (conn *ClientConn) addRepositoryListeners() {
 func (conn *ClientConn) removeRepositoryListeners() {
 	if conn.channelCreatedChan != nil {
 		conn.repo.ChannelCreatedSignal().Remove(conn.channelCreatedChan)
+	}
+
+	if conn.channelRenamedChan != nil {
+		conn.repo.ChannelRenamedSignal().Remove(conn.channelRenamedChan)
 	}
 
 	if conn.messagePostedChan != nil {
@@ -519,6 +556,30 @@ func (conn *ClientConn) CreateChannel(body json.RawMessage) (response Response) 
 	_, err = conn.repo.CreateChannel(message.Name, conn.user.ID)
 	if err != nil {
 		response.Error = errorWithData(JSONRPCInternalError, "Unable to create channel")
+		return response
+	}
+
+	response.Result = true
+	return response
+}
+
+func (conn *ClientConn) RenameChannel(body json.RawMessage) (response Response) {
+	if conn.user.ID == 0 {
+		response.Error = &JSONRPCUnauthenticatedError
+		return response
+	}
+
+	var message RenameChannel
+
+	err := json.Unmarshal(body, &message)
+	if err != nil {
+		response.Error = errorWithData(JSONRPCParseError, err.Error())
+		return response
+	}
+
+	err = conn.repo.RenameChannel(message.ID, message.Name)
+	if err != nil {
+		response.Error = errorWithData(JSONRPCInternalError, "Unable to rename channel")
 		return response
 	}
 

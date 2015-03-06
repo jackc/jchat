@@ -84,6 +84,7 @@ type PgxRepository struct {
 	pool                 *pgx.ConnPool
 	userCreatedSignal    UserSignal
 	channelCreatedSignal ChannelSignal
+	channelRenamedSignal ChannelSignal
 	messagePostedSignal  MessageSignal
 }
 
@@ -117,6 +118,10 @@ func (repo *PgxRepository) UserCreatedSignal() *UserSignal {
 
 func (repo *PgxRepository) ChannelCreatedSignal() *ChannelSignal {
 	return &repo.channelCreatedSignal
+}
+
+func (repo *PgxRepository) ChannelRenamedSignal() *ChannelSignal {
+	return &repo.channelRenamedSignal
 }
 
 func (repo *PgxRepository) CreateUser(name, email, password string) (user User, err error) {
@@ -310,6 +315,8 @@ func (repo *PgxRepository) RenameChannel(channelID int32, name string) (err erro
 	if commandTag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
+
+	go repo.channelRenamedSignal.Dispatch(Channel{ID: channelID, Name: name})
 
 	return nil
 }

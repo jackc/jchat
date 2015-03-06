@@ -74,6 +74,10 @@ type ChannelCreatedSignaler interface {
 	ChannelCreatedSignal() *ChannelSignal
 }
 
+type ChannelRenamedSignaler interface {
+	ChannelRenamedSignal() *ChannelSignal
+}
+
 type MessagePostedSignaler interface {
 	MessagePostedSignal() *MessageSignal
 }
@@ -84,6 +88,7 @@ type Repository interface {
 	SessionRepository
 	ChatRepository
 	ChannelCreatedSignaler
+	ChannelRenamedSignaler
 	MessagePostedSignaler
 }
 
