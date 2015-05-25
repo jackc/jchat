@@ -4,8 +4,8 @@ require 'scrypt'
 module FactoryHelper
   def create_user attrs={}
     defaults = {
-      email: Faker::Internet.email,
-      name: Faker::Name.first_name.gsub(/\W/, ''),
+      email: FFaker::Internet.email,
+      name: FFaker::Name.first_name.gsub(/\W/, ''),
       password: "password"
     }
     attrs = defaults.merge(attrs)
@@ -16,7 +16,7 @@ module FactoryHelper
   end
 
   def create_channel attrs={}
-    defaults = { name: Faker::Movie.title }
+    defaults = { name: FFaker::Movie.title }
     attrs = defaults.merge(attrs)
     DB[:channels].insert attrs
   end
